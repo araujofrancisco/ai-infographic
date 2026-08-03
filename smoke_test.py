@@ -42,8 +42,10 @@ MODULES = [
     "cleanup",
     "exceptions",
     "tasks",
+    "task_store",
     "routes_ui",
-    "routes_tasks"
+    "routes_tasks",
+    "routes_library"
 ]
 
 TINY_PNG = base64.b64decode(
@@ -294,7 +296,7 @@ def full_checks():
         str(APP_DIR)
     )
 
-    import main
+    import main  # noqa: F401  (import the whole app)
 
     from models import (
         InfographicContent,

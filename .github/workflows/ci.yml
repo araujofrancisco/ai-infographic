@@ -1,0 +1,32 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+
+  test:
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install -r app/requirements.txt pytest ruff
+
+      - name: Unit and component tests
+        run: python -m pytest
+
+      - name: Lint (safety rules)
+        run: ruff check
+
+      - name: Smoke test
+        run: python smoke_test.py
