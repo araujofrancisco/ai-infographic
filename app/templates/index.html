@@ -1,15 +1,9 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
+    {% include "_head.html" %}
     <title>AI Infographic Generator</title>
-
-    <link
-        rel="stylesheet"
-        href="/static/style.css"
-    >
 </head>
-
 <body>
 
 {% include "_nav.html" %}
@@ -23,112 +17,133 @@
         Ollama and ComfyUI.
     </p>
 
-    {% if error %}
-    <div class="error">
-        {{ error }}
-    </div>
+    <div id="banner-region" aria-live="polite">
 
-    {% include "_retry.html" %}
-    {% endif %}
+        {% if error %}
+        <div class="error">
+            {{ error }}
+        </div>
+
+        {% include "_retry.html" %}
+        {% endif %}
+
+    </div>
 
     <form
         method="post"
         action="/generate-content"
         data-loading
+        class="index-form"
     >
 
-        <label for="topic">Topic</label>
+        <div class="field field-full">
 
-        <textarea
-            id="topic"
-            name="topic"
-            required
-            placeholder="Example: Docker Networking"
-        >{{ topic or "" }}</textarea>
+            <label for="topic">Topic</label>
 
+            <textarea
+                id="topic"
+                name="topic"
+                required
+                placeholder="Example: Docker Networking"
+            >{{ topic or "" }}</textarea>
 
-        <label for="audience">Audience</label>
+        </div>
 
-        <select id="audience" name="audience">
+        <div class="field">
 
-            <option
-                {% if (audience or "Beginner") == "Beginner" %}selected{% endif %}
-            >Beginner</option>
+            <label for="audience">Audience</label>
 
-            <option
-                {% if (audience or "") == "Intermediate" %}selected{% endif %}
-            >Intermediate</option>
+            <select id="audience" name="audience">
 
-            <option
-                {% if (audience or "") == "Advanced" %}selected{% endif %}
-            >Advanced</option>
+                <option
+                    {% if (audience or "Beginner") == "Beginner" %}selected{% endif %}
+                >Beginner</option>
 
-            <option
-                {% if (audience or "") == "Technical Professional" %}selected{% endif %}
-            >Technical Professional</option>
+                <option
+                    {% if (audience or "") == "Intermediate" %}selected{% endif %}
+                >Intermediate</option>
 
-        </select>
+                <option
+                    {% if (audience or "") == "Advanced" %}selected{% endif %}
+                >Advanced</option>
 
+                <option
+                    {% if (audience or "") == "Technical Professional" %}selected{% endif %}
+                >Technical Professional</option>
 
-        <label for="style">Visual Style</label>
+            </select>
 
-        <select id="style" name="style">
+        </div>
 
-            <option
-                {% if (style or "Technical / Modern") == "Technical / Modern" %}selected{% endif %}
-            >
-                Technical / Modern
-            </option>
+        <div class="field">
 
-            <option
-                {% if (style or "") == "Minimal" %}selected{% endif %}
-            >
-                Minimal
-            </option>
+            <label for="style">Visual Style</label>
 
-            <option
-                {% if (style or "") == "Isometric" %}selected{% endif %}
-            >
-                Isometric
-            </option>
+            <select id="style" name="style">
 
-            <option
-                {% if (style or "") == "Educational" %}selected{% endif %}
-            >
-                Educational
-            </option>
+                <option
+                    {% if (style or "Technical / Modern") == "Technical / Modern" %}selected{% endif %}
+                >
+                    Technical / Modern
+                </option>
 
-            <option
-                {% if (style or "") == "Hand Drawn" %}selected{% endif %}
-            >
-                Hand Drawn
-            </option>
+                <option
+                    {% if (style or "") == "Minimal" %}selected{% endif %}
+                >
+                    Minimal
+                </option>
 
-        </select>
+                <option
+                    {% if (style or "") == "Isometric" %}selected{% endif %}
+                >
+                    Isometric
+                </option>
 
+                <option
+                    {% if (style or "") == "Educational" %}selected{% endif %}
+                >
+                    Educational
+                </option>
 
-        <label for="section_count">Number of Sections</label>
+                <option
+                    {% if (style or "") == "Hand Drawn" %}selected{% endif %}
+                >
+                    Hand Drawn
+                </option>
 
-        <select id="section_count" name="section_count">
+            </select>
 
-            <option
-                {% if (section_count or 6) == 4 %}selected{% endif %}
-            >4</option>
+        </div>
 
-            <option
-                {% if (section_count or 6) == 6 %}selected{% endif %}
-            >6</option>
+        <div class="field">
 
-            <option
-                {% if (section_count or 6) == 8 %}selected{% endif %}
-            >8</option>
+            <label for="section_count">Number of Sections</label>
 
-        </select>
+            <select id="section_count" name="section_count">
 
+                <option
+                    {% if (section_count or 6) == 4 %}selected{% endif %}
+                >4</option>
 
-        <button type="submit">
-            Generate Content
-        </button>
+                <option
+                    {% if (section_count or 6) == 6 %}selected{% endif %}
+                >6</option>
+
+                <option
+                    {% if (section_count or 6) == 8 %}selected{% endif %}
+                >8</option>
+
+            </select>
+
+        </div>
+
+        <div class="actions">
+
+            <button type="submit">
+                Generate Content
+            </button>
+
+        </div>
 
     </form>
 

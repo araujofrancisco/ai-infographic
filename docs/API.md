@@ -3,8 +3,9 @@
 The app is primarily an HTML UI, so almost every endpoint returns a rendered
 page. The machine-readable endpoints are the **task status** endpoint (polled
 by `working.html`), **save-content in JSON mode** (polled by the review page),
-and **delete** (called by the library). All routes are served by the FastAPI
-app (`app.main:app`).
+**preview** (live layout preview, polled by the review page), **cancel**
+(called by the working page), and **delete** (called by the library). All
+routes are served by the FastAPI app (`app.main:app`).
 
 Base URL: `http://<host>:<APP_PORT>/` (default port `8090`).
 
@@ -27,6 +28,7 @@ Base URL: `http://<host>:<APP_PORT>/` (default port `8090`).
 | POST | `/generate-content` | Start a content-generation task |
 | POST | `/save-content` | Save edited content (HTML or JSON mode) |
 | GET | `/review/{project_id}` | Editable review page for a draft |
+| POST | `/preview/{project_id}` | Live layout preview (SVG) without persisting |
 | GET | `/result/{project_id}` | Result/download page (only when rendered) |
 | POST | `/generate-infographic` | Start a rendering task |
 | GET | `/files/{project_id}/{filename}` | Serve a rendered output file |
@@ -35,6 +37,7 @@ Base URL: `http://<host>:<APP_PORT>/` (default port `8090`).
 | POST | `/projects/{project_id}/delete` | Hard-delete a project |
 | GET | `/activity` | Task history feed |
 | GET | `/tasks/{task_id}/status` | JSON task status (poller) |
+| POST | `/tasks/{task_id}/cancel` | Cancel a pending/running task |
 | GET | `/tasks/{task_id}` | Task error page |
 | GET | `/static/*` | CSS/JS assets |
 
@@ -112,6 +115,28 @@ Renders the result/download page. **Only** served when all output files
 
 - `200` HTML.
 - `404` plain text `"Infographic not found"` otherwise.
+
+### `POST /preview/{project_id}`
+
+Renders a live layout preview without persisting anything. Used by the review
+page's sticky preview pane; `static/review.js` debounces edits ~500ms and
+POSTs the current DOM as `content_json`.
+
+**Form fields:**
+
+| Field | Required | Notes |
+| --- | --- | --- |
+| `content_json` | yes | JSON string matching `InfographicContent` (unsaved edits) |
+
+The SVG is built with `renderer.build_svg()` against `projects/<id>/page.png`
+when it exists, else the committed `app/static/placeholder.png`. The response
+is `image/svg+xml` with `Cache-Control: no-store`.
+
+**Responses:**
+
+- `200` `image/svg+xml` (self-contained SVG embedding the page image).
+- `400` `{"ok": false, "error": "Content validation failed: <detail>"}`
+- `404` `{"ok": false, "error": "Project not found."}`
 
 ### `POST /generate-infographic`
 
@@ -203,6 +228,21 @@ ticks from the journal — it reflects live in-memory task state.
 - `200` [Task status payload](#task-status-payload).
 - `404` JSON `{"detail": "Task not found"}`.
 
+### `POST /tasks/{task_id}/cancel`
+
+Cancels a pending or running task. Adapter over `TaskManager.cancel()`
+(tasks.py), which aborts the underlying asyncio task mid-await plus a
+cooperative progress-callback check. Called by the Cancel button on
+`working.html`.
+
+**Responses:**
+
+- `200` `{"ok": true}`. The poller then redirects to `/tasks/{id}` (cancelled
+  error page).
+- `404` JSON `{"detail": "Task not found"}`.
+- `409` `{"ok": false, "error": "This task has already finished."}` (terminal
+  task, or a second cancel).
+
 ### `GET /tasks/{task_id}`
 
 Renders the task error page: `index.html` (content tasks) or `review.html`
@@ -222,7 +262,8 @@ reusing the exact inputs from the failed run.
 ## Static assets
 
 `GET /static/*` serves `app/static/`: `style.css`, `app.js` (index/result
-form spinner), `review.js` (review save/generate), `library.js` (delete flow).
+form spinner), `review.js` (review save/generate/preview), `result.js`
+(result viewer tabs + lightbox), `library.js` (delete flow).
 
 ## Schemas
 
@@ -297,9 +338,13 @@ message if the status endpoint 404s (server restart).
 | --- | --- | --- |
 | `/save-content?json=1` | `400` | Content failed validation (details in `error`). |
 | `/save-content?json=1` | `404` | Project not found. |
+| `/preview/{id}` | `400` | Content failed validation (details in `error`). |
+| `/preview/{id}` | `404` | Project not found. |
 | `/projects/{id}/delete` | `404` | Invalid or missing project. |
 | `/projects/{id}/delete` | `409` | Project referenced by a running task. |
 | `/tasks/{id}/status` | `404` | Unknown task (e.g. lost on restart). |
+| `/tasks/{id}/cancel` | `404` | Unknown task. |
+| `/tasks/{id}/cancel` | `409` | Task already terminal. |
 | `/review`, `/result`, `/files` | `404` | Missing project, output, or file. |
 
 Task failures (Ollama/ComfyUI errors) do **not** surface as HTTP errors on the

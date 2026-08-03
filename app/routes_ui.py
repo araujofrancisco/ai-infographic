@@ -11,7 +11,8 @@ from fastapi.responses import (
     FileResponse,
     HTMLResponse,
     JSONResponse,
-    RedirectResponse
+    RedirectResponse,
+    Response
 )
 
 from fastapi.templating import (
@@ -22,6 +23,10 @@ from pydantic import ValidationError
 
 from models import (
     InfographicContent
+)
+
+from renderer import (
+    build_svg
 )
 
 from services import (
@@ -64,6 +69,12 @@ repo = ProjectRepository()
 outputs = OutputStore()
 
 router = APIRouter()
+
+PLACEHOLDER_IMAGE = (
+    Path(__file__).parent
+    / "static"
+    / "placeholder.png"
+)
 
 
 @router.get(
@@ -299,6 +310,82 @@ async def review(
         request=request,
         name="review.html",
         context=context
+    )
+
+
+@router.post(
+    "/preview/{project_id}"
+)
+async def preview(
+    project_id: str,
+    content_json: str = Form(...)
+):
+
+    try:
+
+        content = InfographicContent.model_validate_json(
+            content_json
+        )
+
+    except ValidationError as exc:
+
+        detail = "; ".join(
+            error.get(
+                "msg",
+                ""
+            )
+            for error in exc.errors()
+        )
+
+        return JSONResponse(
+            {
+                "ok": False,
+                "error": (
+                    "Content validation failed: "
+                    + (detail or str(exc))
+                )
+            },
+            status_code=400
+        )
+
+    if not repo.exists(
+        project_id
+    ):
+
+        return JSONResponse(
+            {
+                "ok": False,
+                "error": "Project not found."
+            },
+            status_code=404
+        )
+
+    image_path = (
+        repo.project_dir(
+            project_id
+        )
+        / "page.png"
+    )
+
+    if not image_path.exists():
+
+        image_path = PLACEHOLDER_IMAGE
+
+    svg = build_svg(
+        content=content,
+        image_paths=[
+            str(
+                image_path
+            )
+        ]
+    )
+
+    return Response(
+        content=svg,
+        media_type="image/svg+xml",
+        headers={
+            "Cache-Control": "no-store"
+        }
     )
 
 

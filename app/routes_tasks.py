@@ -7,7 +7,8 @@ from fastapi import (
 )
 
 from fastapi.responses import (
-    HTMLResponse
+    HTMLResponse,
+    JSONResponse
 )
 
 from fastapi.templating import (
@@ -33,6 +34,12 @@ templates = Jinja2Templates(
 repo = ProjectRepository()
 
 router = APIRouter()
+
+TERMINAL_STATUSES = (
+    "succeeded",
+    "failed",
+    "cancelled"
+)
 
 
 def _field_value(
@@ -133,6 +140,55 @@ async def task_status(
     return task_manager.to_dict(
         task
     )
+
+
+@router.post(
+    "/tasks/{task_id}/cancel"
+)
+async def cancel_task(
+    task_id: str
+):
+
+    task = task_manager.get(
+        task_id
+    )
+
+    if task is None:
+
+        raise HTTPException(
+            status_code=404,
+            detail="Task not found"
+        )
+
+    if task.status in TERMINAL_STATUSES:
+
+        return JSONResponse(
+            {
+                "ok": False,
+                "error": (
+                    "This task has already finished."
+                )
+            },
+            status_code=409
+        )
+
+    if not task_manager.cancel(
+        task_id
+    ):
+
+        return JSONResponse(
+            {
+                "ok": False,
+                "error": (
+                    "This task could not be cancelled."
+                )
+            },
+            status_code=409
+        )
+
+    return {
+        "ok": True
+    }
 
 
 @router.get(

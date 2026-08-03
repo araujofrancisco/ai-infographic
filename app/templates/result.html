@@ -1,20 +1,9 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-
-    <meta charset="UTF-8">
-
-    <title>
-        Infographic Generated
-    </title>
-
-    <link
-        rel="stylesheet"
-        href="/static/style.css"
-    >
-
+    {% include "_head.html" %}
+    <title>Infographic Generated</title>
 </head>
-
 <body>
 
 {% include "_nav.html" %}
@@ -43,7 +32,7 @@
             target="_blank"
             download
         >
-            View PNG
+            Download PNG
         </a>
 
         <a
@@ -51,7 +40,7 @@
             target="_blank"
             download
         >
-            View SVG
+            Download SVG
         </a>
 
         <a
@@ -59,7 +48,7 @@
             target="_blank"
             download
         >
-            View PDF
+            Download PDF
         </a>
 
         <a
@@ -99,9 +88,111 @@
 
     </form>
 
+    <div
+        class="viewer"
+        id="viewer"
+    >
+
+        <div
+            class="viewer-tabs"
+            role="tablist"
+            aria-label="Output preview"
+        >
+
+            <button
+                type="button"
+                id="tab-png"
+                class="viewer-tab active"
+                role="tab"
+                aria-selected="true"
+                aria-controls="panel-png"
+            >
+                PNG
+            </button>
+
+            <button
+                type="button"
+                id="tab-pdf"
+                class="viewer-tab"
+                role="tab"
+                aria-selected="false"
+                aria-controls="panel-pdf"
+            >
+                PDF
+            </button>
+
+        </div>
+
+        <div
+            id="panel-png"
+            class="viewer-panel"
+            role="tabpanel"
+            aria-labelledby="tab-png"
+        >
+
+            <img
+                class="preview"
+                id="result-png"
+                src="/files/{{ project_id }}/infographic.png"
+                alt="Rendered infographic"
+            >
+
+            <p class="viewer-hint">
+                Click the image to zoom.
+            </p>
+
+        </div>
+
+        <div
+            id="panel-pdf"
+            class="viewer-panel"
+            role="tabpanel"
+            aria-labelledby="tab-pdf"
+            hidden
+        >
+
+            <iframe
+                src="/files/{{ project_id }}/infographic.pdf"
+                title="PDF preview"
+            ></iframe>
+
+            <p class="viewer-hint">
+                If the preview does not load,
+                <a
+                    href="/files/{{ project_id }}/infographic.pdf"
+                    download
+                >
+                    download the PDF
+                </a>.
+            </p>
+
+        </div>
+
+    </div>
+
+</div>
+
+<div
+    id="lightbox"
+    class="lightbox"
+    hidden
+    role="dialog"
+    aria-modal="true"
+    aria-label="Infographic preview"
+>
+
+    <button
+        type="button"
+        id="lightbox-close"
+        class="lightbox-close"
+        aria-label="Close preview"
+    >
+        &times;
+    </button>
+
     <img
-        class="preview"
-        src="/files/{{ project_id }}/infographic.png"
+        id="lightbox-img"
+        alt="Infographic preview"
     >
 
 </div>
@@ -120,6 +211,7 @@
 
 </div>
 
+<script src="/static/result.js"></script>
 <script src="/static/app.js"></script>
 
 </body>

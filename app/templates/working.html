@@ -1,20 +1,9 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-
-    <meta charset="UTF-8">
-
-    <title>
-        Working…
-    </title>
-
-    <link
-        rel="stylesheet"
-        href="/static/style.css"
-    >
-
+    {% include "_head.html" %}
+    <title>Working…</title>
 </head>
-
 <body>
 
 {% include "_nav.html" %}
@@ -59,6 +48,18 @@
     >
         This page updates automatically when finished.
     </p>
+
+    <div class="overlay-actions">
+
+        <button
+            type="button"
+            id="cancel-button"
+            class="secondary"
+        >
+            Cancel generation
+        </button>
+
+    </div>
 
 </div>
 
@@ -107,6 +108,10 @@
 
         var progressNote = document.getElementById(
             "progress-note"
+        );
+
+        var cancelButton = document.getElementById(
+            "cancel-button"
         );
 
         function showError(message) {
@@ -236,6 +241,72 @@
 
                 schedule();
             });
+        }
+
+        function requestCancel() {
+
+            if (!cancelButton) {
+                return;
+            }
+
+            cancelButton.disabled = true;
+
+            cancelButton.textContent = "Cancelling…";
+
+            fetch(
+                "/tasks/" + taskId + "/cancel",
+                {
+                    method: "POST"
+                }
+            )
+            .then(function (response) {
+
+                return response.json().then(
+                    function (data) {
+
+                        if (!response.ok || !data.ok) {
+
+                            throw {
+                                status: response.status,
+                                message: (
+                                    data.error
+                                    || "Could not cancel."
+                                )
+                            };
+                        }
+
+                        return data;
+                    }
+                );
+            })
+            .catch(function (error) {
+
+                if (
+                    error
+                    && error.status === 409
+                ) {
+
+                    return;
+                }
+
+                cancelButton.textContent =
+                    "Cancel generation";
+
+                cancelButton.disabled = false;
+
+                showError(
+                    error.message
+                    || "Could not cancel this task."
+                );
+            });
+        }
+
+        if (cancelButton) {
+
+            cancelButton.addEventListener(
+                "click",
+                requestCancel
+            );
         }
 
         var start = Date.now();

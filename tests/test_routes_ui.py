@@ -293,3 +293,78 @@ def test_review_404_for_missing_project(
     )
 
     assert response.status_code == 404
+
+
+def test_preview_renders_svg(
+    client
+):
+
+    project_id = write_a_project()
+
+    response = client.post(
+        f"/preview/{project_id}",
+        data={
+            "content_json": (
+                make_content().model_dump_json()
+            )
+        }
+    )
+
+    assert response.status_code == 200
+
+    assert (
+        response.headers["content-type"]
+        .startswith("image/svg+xml")
+    )
+
+    assert "<svg" in response.text
+
+    assert (
+        response.headers.get("cache-control")
+        == "no-store"
+    )
+
+
+def test_preview_invalid_content_returns_400(
+    client
+):
+
+    project_id = write_a_project()
+
+    response = client.post(
+        f"/preview/{project_id}",
+        data={
+            "content_json": '{"title": "only"}'
+        }
+    )
+
+    assert response.status_code == 400
+
+    body = response.json()
+
+    assert body["ok"] is False
+
+    assert "validation failed" in (
+        body["error"].lower()
+    )
+
+
+def test_preview_missing_project_returns_404(
+    client
+):
+
+    response = client.post(
+        f"/preview/{uuid.uuid4()}",
+        data={
+            "content_json": (
+                make_content().model_dump_json()
+            )
+        }
+    )
+
+    assert response.status_code == 404
+
+    assert response.json() == {
+        "ok": False,
+        "error": "Project not found."
+    }

@@ -6,8 +6,8 @@ content as JSON (Pydantic schema), ComfyUI renders ONE portrait SDXL image
 (1024x1448) that becomes the full-page background, `renderer.py` overlays the
 text on it and composites an A4 SVG/PNG/PDF (cairosvg).
 `pytest` suite + `ruff` safety checks + GitHub Actions CI (see
-`scripts/verify.sh`). Local git repo, no remote (`.gitignore` excludes `.env`,
-`comfyui/`, `output/`, `projects/`, `tasks/`).
+`scripts/verify.sh`). Git repo on `origin` (`github.com/araujofrancisco/ai-infographic`);
+`.gitignore` excludes `.env`, `comfyui/`, `output/`, `projects/`, `tasks/`.
 
 ## Running
 - `docker compose up --build` starts `comfyui` (port 8188, requires NVIDIA GPU)
@@ -33,7 +33,10 @@ text on it and composites an A4 SVG/PNG/PDF (cairosvg).
   (`TaskManager`, `asyncio.create_task`) and immediately return `working.html`,
   which polls `GET /tasks/{id}/status` (exponential backoff, 2s->5s) and
   redirects to `/review/{pid}` or `/result/{pid}` on success, or `/tasks/{id}`
-  (error page) on failure.
+  (error page) on failure. `working.html` also offers a Cancel button wired to
+  `POST /tasks/{id}/cancel` (an adapter over `TaskManager.cancel()`, 404 unknown
+  / 409 terminal); this matters because navigating away does NOT stop the
+  server-side task, so a misclick previously burned a ComfyUI slot.
   In-memory state; lost on restart (fine for single-worker compose). Tasks have
   a per-kind semaphore (one running + `MAX_QUEUED_PER_KIND` queued), timestamps,
   a `progress {current,total,message}` dict, hard cancel (`cancel()` aborts the
@@ -58,8 +61,9 @@ text on it and composites an A4 SVG/PNG/PDF (cairosvg).
   not referenced by a running task (`TaskManager.active_project_ids()`);
   `PROJECT_RETENTION_SECONDS=0` disables it. Task lifecycle events
   (start/success/failure/cancel duration) and Ollama retry attempts are logged
-  with the task id. `app/routes_ui.py` (pages + save-content + generate + file
-  serving), `app/routes_tasks.py` (status + error page) and `app/routes_library.py`
+  with the task id. `app/routes_ui.py` (pages + save-content + generate +
+  preview + file serving), `app/routes_tasks.py` (status + cancel + error page)
+  and `app/routes_library.py`
   (library + delete + thumbnail + activity) hold all HTTP. Business logic lives
   in `app/services.py` (`ContentService`, `RenderingService`), storage in
   `app/storage.py` (`ProjectRepository` writes `projects/<uuid>/project.json`
@@ -75,8 +79,9 @@ text on it and composites an A4 SVG/PNG/PDF (cairosvg).
   12). `GET /projects/{id}/thumbnail`
   serves the rendered `infographic.png` or the raw `page.png` via a
   uuid-guarded resolver. `GET /activity` renders the tail of the task journal
-  with status/duration and links back to projects. A `_nav.html` partial
-  (New / Library / Activity) is included on every page.
+  with status/duration and links back to projects. A `_head.html` partial
+  (viewport, SVG-data-URI favicon, stylesheet) and a `_nav.html` partial
+  (New / Library / Activity) are included on every page.
 - Content worker -> `ContentService.create_content` -> `OllamaClient` (corrective
   retry up to `OLLAMA_MAX_ATTEMPTS` on invalid JSON/schema) -> project saved.
   Infographic worker -> `RenderingService.generate()` -> one `ComfyUIClient`
@@ -121,7 +126,17 @@ text on it and composites an A4 SVG/PNG/PDF (cairosvg).
   `/save-content?json=1` (returns `{"ok":true}` / `400 {"ok":false,"error":...}`
   so edits are never lost on validation failure). "Generate infographic" saves
   first, then submits the hidden generate form (`force-regen` checkbox
-  regenerates `page.png`).
+  regenerates `page.png`). Sections are collapsible `<details>` blocks (live
+  title in the summary, expand/collapse all) with add/remove clamped to the
+  schema's 3-8 range; success notices auto-dismiss (errors persist) and are
+  announced via an `aria-live` banner region. A sticky `preview-pane` gives a
+  live layout preview: `POST /preview/{id}` validates `content_json`, calls
+  `renderer.build_svg()` against `projects/<id>/page.png` (falling back to the
+  committed `app/static/placeholder.png`) and returns `image/svg+xml` with
+  `Cache-Control: no-store`; review.js debounces edits ~500ms (sequence-guarded)
+  and renders the SVG into the pane, surfacing validation errors inline.
+  `result.html` (`static/result.js`) is a tabbed PNG/PDF viewer with a
+  click-to-zoom lightbox (Escape/backdrop dismiss, focus restore).
 
 ## Verification
 - `scripts/verify.sh` runs, in order: `pytest` (unit + component suite in
@@ -135,7 +150,8 @@ text on it and composites an A4 SVG/PNG/PDF (cairosvg).
   wrap/fit boundaries + header wrap/empty-image guard, `services.py`
   (page-prompt motifs, `create_content`, `generate` resume vs `force`), UI/task
   routes via `TestClient` (queue-full, `save-content` JSON 400/404, error-page
-  retry forms), library/delete/thumbnail/activity/search/pagination routes,
+  retry forms, task-cancel 200/409/404, preview SVG/400/404),
+  library/delete/thumbnail/activity/search/pagination routes,
   and a **ComfyUI workflow contract test** that asserts every
   node-ID constant in `comfyui_client.py` exists in `illustration_api.json`
   with the expected type and wiring and that `build_workflow` applies
@@ -203,9 +219,11 @@ text on it and composites an A4 SVG/PNG/PDF (cairosvg).
   retry form (`_retry.html` partial) that re-submits the stored form via
   `data-loading`. `working.html`
   JS lives inline; `static/app.js` handles the form submit spinner on
-  index/result pages; `static/review.js` owns review-page save/regen logic;
-  `static/library.js` owns the library delete flow. A `_nav.html` partial is
-  included on every page; pass `active` in the context to highlight a tab.
+  index/result pages; `static/review.js` owns review-page save/regen/preview
+  logic; `static/result.js` owns the result viewer tabs + lightbox;
+  `static/library.js` owns the library delete flow. A `_head.html` partial and a
+  `_nav.html` partial are included on every page; pass `active` in the context
+  to highlight a tab.
 - `comfyui/` is a ~6.6G mounted install; in-container files can be root-owned
   mode 600 (e.g. `comfyui/workflows/illustration.json`) - the app never reads them.
 - `output/`, `projects/` and `tasks/` are runtime data dirs (compose volumes)

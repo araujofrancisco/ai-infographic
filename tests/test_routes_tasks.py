@@ -178,3 +178,159 @@ def test_task_page_404_for_missing_task(
     )
 
     assert response.status_code == 404
+
+
+def test_cancel_pending_task_returns_ok(
+    client
+):
+
+    task_id = str(
+        uuid.uuid4()
+    )
+
+    task = Task(
+        id=task_id,
+        kind="content",
+        form={
+            "topic": "Docker"
+        }
+    )
+
+    task_manager._tasks[
+        task_id
+    ] = task
+
+    TESTED.add(
+        task_id
+    )
+
+    response = client.post(
+        f"/tasks/{task_id}/cancel"
+    )
+
+    assert response.status_code == 200
+
+    assert response.json() == {
+        "ok": True
+    }
+
+    assert (
+        task_manager.get(
+            task_id
+        ).status
+        == "cancelled"
+    )
+
+
+def test_cancel_running_task_returns_ok(
+    client
+):
+
+    task_id = str(
+        uuid.uuid4()
+    )
+
+    task = Task(
+        id=task_id,
+        kind="content",
+        form={}
+    )
+
+    task.status = "running"
+
+    task_manager._tasks[
+        task_id
+    ] = task
+
+    TESTED.add(
+        task_id
+    )
+
+    response = client.post(
+        f"/tasks/{task_id}/cancel"
+    )
+
+    assert response.status_code == 200
+
+    assert response.json() == {
+        "ok": True
+    }
+
+    assert (
+        task_manager.get(
+            task_id
+        ).cancelled
+        is True
+    )
+
+
+def test_cancel_terminal_task_returns_409(
+    client
+):
+
+    task_id = add_task(
+        "content",
+        form={
+            "topic": "Docker"
+        }
+    )
+
+    response = client.post(
+        f"/tasks/{task_id}/cancel"
+    )
+
+    assert response.status_code == 409
+
+    body = response.json()
+
+    assert body["ok"] is False
+
+    assert "already finished" in (
+        body["error"]
+    )
+
+
+def test_cancel_missing_task_returns_404(
+    client
+):
+
+    response = client.post(
+        f"/tasks/{uuid.uuid4()}/cancel"
+    )
+
+    assert response.status_code == 404
+
+
+def test_cancel_twice_second_returns_409(
+    client
+):
+
+    task_id = str(
+        uuid.uuid4()
+    )
+
+    task = Task(
+        id=task_id,
+        kind="content",
+        form={}
+    )
+
+    task_manager._tasks[
+        task_id
+    ] = task
+
+    TESTED.add(
+        task_id
+    )
+
+    first = client.post(
+        f"/tasks/{task_id}/cancel"
+    )
+
+    assert first.status_code == 200
+
+    second = client.post(
+        f"/tasks/{task_id}/cancel"
+    )
+
+    assert second.status_code == 409

@@ -1,20 +1,9 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-
-    <meta charset="UTF-8">
-
-    <title>
-        Review Infographic
-    </title>
-
-    <link
-        rel="stylesheet"
-        href="/static/style.css"
-    >
-
+    {% include "_head.html" %}
+    <title>Review Infographic</title>
 </head>
-
 <body>
 
 {% include "_nav.html" %}
@@ -32,90 +21,319 @@
         Review Infographic
     </h1>
 
-    {% if error %}
-    <div class="error">
-        {{ error }}
+    <div id="banner-region" aria-live="polite">
+
+        {% if error %}
+        <div class="error">
+            {{ error }}
+        </div>
+
+        {% include "_retry.html" %}
+        {% endif %}
+
+        {% if notice %}
+        <div class="notice">
+            {{ notice }}
+        </div>
+        {% endif %}
+
     </div>
 
-    {% include "_retry.html" %}
-    {% endif %}
+    <div class="editor-grid">
 
-    {% if notice %}
-    <div class="notice">
-        {{ notice }}
+        <div>
+
+            <form
+                id="save-form"
+                method="post"
+                action="/save-content"
+            >
+
+                <input
+                    type="hidden"
+                    name="project_id"
+                    value="{{ project_id }}"
+                >
+
+                <div class="field">
+
+                    <label
+                        for="content-title"
+                    >
+                        Title
+                    </label>
+
+                    <input
+                        type="text"
+                        id="content-title"
+                        name="content-title"
+                        value="{{ content.title }}"
+                    >
+
+                </div>
+
+                <div class="field">
+
+                    <label
+                        for="content-subtitle"
+                    >
+                        Subtitle
+                    </label>
+
+                    <input
+                        type="text"
+                        id="content-subtitle"
+                        name="content-subtitle"
+                        value="{{ content.subtitle }}"
+                    >
+
+                </div>
+
+                <div class="section-tools">
+
+                    <span class="tools-left">
+
+                        <button
+                            type="button"
+                            id="add-section"
+                        >
+                            + Add section
+                        </button>
+
+                    </span>
+
+                    <span class="tools-right">
+
+                        <button
+                            type="button"
+                            id="expand-all"
+                        >
+                            Expand all
+                        </button>
+
+                        <button
+                            type="button"
+                            id="collapse-all"
+                        >
+                            Collapse all
+                        </button>
+
+                    </span>
+
+                </div>
+
+                <div id="section-list">
+
+                    {% for section in content.sections %}
+
+                    <details
+                        class="section-block"
+                        data-index="{{ loop.index0 }}"
+                        open
+                    >
+
+                        <summary>
+
+                            <span class="section-title-live">
+
+                                <span class="section-number">
+                                    Section {{ loop.index }}
+                                </span>
+
+                                <span class="section-title-text">
+                                    {{ section.title }}
+                                </span>
+
+                            </span>
+
+                        </summary>
+
+                        <div class="section-content">
+
+                            <div class="field">
+
+                                <label
+                                    class="sec-label"
+                                    data-for="title"
+                                >
+                                    Title
+                                </label>
+
+                                <input
+                                    type="text"
+                                    class="sec-field sec-title"
+                                    value="{{ section.title }}"
+                                >
+
+                            </div>
+
+                            <div class="field">
+
+                                <label
+                                    class="sec-label"
+                                    data-for="desc"
+                                >
+                                    Description
+                                </label>
+
+                                <textarea
+                                    class="sec-field sec-desc"
+                                    rows="3"
+                                >{{ section.short_description }}</textarea>
+
+                            </div>
+
+                            <div class="field">
+
+                                <label
+                                    class="sec-label"
+                                    data-for="bullets"
+                                >
+                                    Bullet points (one per line)
+                                </label>
+
+                                <textarea
+                                    class="sec-field sec-bullets"
+                                    rows="4"
+                                >{{ section.bullet_points | join("\n") }}</textarea>
+
+                            </div>
+
+                            <div class="field">
+
+                                <label
+                                    class="sec-label"
+                                    data-for="visual"
+                                >
+                                    Illustration description
+                                </label>
+
+                                <input
+                                    type="hidden"
+                                    class="sec-field sec-visual"
+                                    value="{{ section.visual_description }}"
+                                >
+
+                            </div>
+
+                            <div class="section-remove-wrap">
+
+                                <button
+                                    type="button"
+                                    class="section-remove"
+                                >
+                                    Remove section
+                                </button>
+
+                            </div>
+
+                        </div>
+
+                    </details>
+
+                    {% endfor %}
+
+                </div>
+
+                <div class="actions">
+
+                    <button
+                        type="submit"
+                        id="save-button"
+                    >
+                        Save changes
+                    </button>
+
+                    <button
+                        type="button"
+                        id="generate-button"
+                    >
+                        Generate infographic
+                    </button>
+
+                    <label class="checkbox">
+
+                        <input
+                            type="checkbox"
+                            id="force-regen"
+                        >
+
+                        Regenerate the page illustration
+
+                    </label>
+
+                </div>
+
+            </form>
+
+        </div>
+
+        <aside class="preview-pane">
+
+            <h2>
+                Live preview
+            </h2>
+
+            <div class="preview-frame">
+
+                <img
+                    id="preview-img"
+                    alt="Infographic layout preview"
+                >
+
+            </div>
+
+            <p class="preview-note">
+                Layout updates automatically as you edit.
+            </p>
+
+            <p
+                class="preview-status error-inline"
+                id="preview-error"
+                hidden
+            ></p>
+
+        </aside>
+
     </div>
-    {% endif %}
 
-    <form
-        id="save-form"
-        method="post"
-        action="/save-content"
+</div>
+
+<template id="section-template">
+
+    <details
+        class="section-block"
+        data-index="0"
+        open
     >
 
-        <input
-            type="hidden"
-            name="project_id"
-            value="{{ project_id }}"
-        >
+        <summary>
 
-        <div class="field">
+            <span class="section-title-live">
 
-            <label
-                for="content-title"
-            >
-                Title
-            </label>
+                <span class="section-number"></span>
 
-            <input
-                type="text"
-                id="content-title"
-                name="content-title"
-                value="{{ content.title }}"
-            >
+                <span class="section-title-text"></span>
 
-        </div>
+            </span>
 
-        <div class="field">
+        </summary>
 
-            <label
-                for="content-subtitle"
-            >
-                Subtitle
-            </label>
-
-            <input
-                type="text"
-                id="content-subtitle"
-                name="content-subtitle"
-                value="{{ content.subtitle }}"
-            >
-
-        </div>
-
-        {% for section in content.sections %}
-
-        <div
-            class="section"
-            data-index="{{ loop.index0 }}"
-        >
-
-            <h3>
-                Section {{ loop.index }}
-            </h3>
+        <div class="section-content">
 
             <div class="field">
 
                 <label
-                    for="sec-{{ loop.index0 }}-title"
+                    class="sec-label"
+                    data-for="title"
                 >
                     Title
                 </label>
 
                 <input
                     type="text"
-                    id="sec-{{ loop.index0 }}-title"
                     class="sec-field sec-title"
-                    value="{{ section.title }}"
+                    value=""
                 >
 
             </div>
@@ -123,110 +341,68 @@
             <div class="field">
 
                 <label
-                    for="sec-{{ loop.index0 }}-desc"
+                    class="sec-label"
+                    data-for="desc"
                 >
                     Description
                 </label>
 
                 <textarea
-                    id="sec-{{ loop.index0 }}-desc"
                     class="sec-field sec-desc"
                     rows="3"
-                >{{ section.short_description }}</textarea>
+                ></textarea>
 
             </div>
 
             <div class="field">
 
                 <label
-                    for="sec-{{ loop.index0 }}-bullets"
+                    class="sec-label"
+                    data-for="bullets"
                 >
                     Bullet points (one per line)
                 </label>
 
                 <textarea
-                    id="sec-{{ loop.index0 }}-bullets"
                     class="sec-field sec-bullets"
                     rows="4"
-                >{{ section.bullet_points | join("\n") }}</textarea>
+                ></textarea>
 
             </div>
 
             <div class="field">
 
                 <label
-                    for="sec-{{ loop.index0 }}-visual"
+                    class="sec-label"
+                    data-for="visual"
                 >
                     Illustration description
                 </label>
 
                 <input
                     type="hidden"
-                    id="sec-{{ loop.index0 }}-visual"
                     class="sec-field sec-visual"
-                    value="{{ section.visual_description }}"
+                    value=""
                 >
+
+            </div>
+
+            <div class="section-remove-wrap">
+
+                <button
+                    type="button"
+                    class="section-remove"
+                >
+                    Remove section
+                </button>
 
             </div>
 
         </div>
 
-        {% endfor %}
+    </details>
 
-        <div class="actions">
-
-            <button
-                type="submit"
-                id="save-button"
-            >
-                Save changes
-            </button>
-
-            <button
-                type="button"
-                id="generate-button"
-            >
-                Generate infographic
-            </button>
-
-            <label class="checkbox">
-
-                <input
-                    type="checkbox"
-                    id="force-regen"
-                >
-
-                Regenerate the page illustration
-
-            </label>
-
-        </div>
-
-    </form>
-
-    <form
-        id="generate-form"
-        method="post"
-        action="/generate-infographic"
-        hidden
-    >
-
-        <input
-            type="hidden"
-            name="project_id"
-            value="{{ project_id }}"
-        >
-
-        <input
-            type="hidden"
-            name="force"
-            value="0"
-            id="force-input"
-        >
-
-    </form>
-
-</div>
+</template>
 
 <div
     id="loading-overlay"

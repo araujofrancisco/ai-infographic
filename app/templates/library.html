@@ -1,20 +1,9 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-
-    <meta charset="UTF-8">
-
-    <title>
-        Infographic Library
-    </title>
-
-    <link
-        rel="stylesheet"
-        href="/static/style.css"
-    >
-
+    {% include "_head.html" %}
+    <title>Infographic Library</title>
 </head>
-
 <body>
 
 {% include "_nav.html" %}
@@ -245,18 +234,18 @@
 
     {% endif %}
 
-</div>
-
-<div
-    id="delete-error"
-    class="container"
-    hidden
->
-
     <div
-        class="error"
-        id="delete-error-text"
-    ></div>
+        id="delete-error"
+        hidden
+        aria-live="polite"
+    >
+
+        <div
+            class="error"
+            id="delete-error-text"
+        ></div>
+
+    </div>
 
 </div>
 
