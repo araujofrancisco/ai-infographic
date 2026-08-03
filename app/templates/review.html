@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+    <meta charset="UTF-8">
+
+    <title>
+        Review Infographic
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="/static/style.css"
+    >
+
+</head>
+
+<body>
+
+<div class="container">
+
+    <a
+        class="back-link"
+        href="/"
+    >
+        ← New infographic
+    </a>
+
+    <h1>
+        Review Infographic
+    </h1>
+
+    {% if error %}
+    <div class="error">
+        {{ error }}
+    </div>
+    {% endif %}
+
+    {% if notice %}
+    <div class="notice">
+        {{ notice }}
+    </div>
+    {% endif %}
+
+    <form
+        id="save-form"
+        method="post"
+        action="/save-content"
+    >
+
+        <input
+            type="hidden"
+            name="project_id"
+            value="{{ project_id }}"
+        >
+
+        <div class="field">
+
+            <label
+                for="content-title"
+            >
+                Title
+            </label>
+
+            <input
+                type="text"
+                id="content-title"
+                name="content-title"
+                value="{{ content.title }}"
+            >
+
+        </div>
+
+        <div class="field">
+
+            <label
+                for="content-subtitle"
+            >
+                Subtitle
+            </label>
+
+            <input
+                type="text"
+                id="content-subtitle"
+                name="content-subtitle"
+                value="{{ content.subtitle }}"
+            >
+
+        </div>
+
+        {% for section in content.sections %}
+
+        <div
+            class="section"
+            data-index="{{ loop.index0 }}"
+        >
+
+            <h3>
+                Section {{ loop.index }}
+            </h3>
+
+            <div class="field">
+
+                <label
+                    for="sec-{{ loop.index0 }}-title"
+                >
+                    Title
+                </label>
+
+                <input
+                    type="text"
+                    id="sec-{{ loop.index0 }}-title"
+                    class="sec-field sec-title"
+                    value="{{ section.title }}"
+                >
+
+            </div>
+
+            <div class="field">
+
+                <label
+                    for="sec-{{ loop.index0 }}-desc"
+                >
+                    Description
+                </label>
+
+                <textarea
+                    id="sec-{{ loop.index0 }}-desc"
+                    class="sec-field sec-desc"
+                    rows="3"
+                >{{ section.short_description }}</textarea>
+
+            </div>
+
+            <div class="field">
+
+                <label
+                    for="sec-{{ loop.index0 }}-bullets"
+                >
+                    Bullet points (one per line)
+                </label>
+
+                <textarea
+                    id="sec-{{ loop.index0 }}-bullets"
+                    class="sec-field sec-bullets"
+                    rows="4"
+                >{{ section.bullet_points | join("\n") }}</textarea>
+
+            </div>
+
+            <div class="field">
+
+                <label
+                    for="sec-{{ loop.index0 }}-visual"
+                >
+                    Illustration description
+                </label>
+
+                <input
+                    type="hidden"
+                    id="sec-{{ loop.index0 }}-visual"
+                    class="sec-field sec-visual"
+                    value="{{ section.visual_description }}"
+                >
+
+            </div>
+
+        </div>
+
+        {% endfor %}
+
+        <div class="actions">
+
+            <button
+                type="submit"
+                id="save-button"
+            >
+                Save changes
+            </button>
+
+            <button
+                type="button"
+                id="generate-button"
+            >
+                Generate infographic
+            </button>
+
+            <label class="checkbox">
+
+                <input
+                    type="checkbox"
+                    id="force-regen"
+                >
+
+                Regenerate the page illustration
+
+            </label>
+
+        </div>
+
+    </form>
+
+    <form
+        id="generate-form"
+        method="post"
+        action="/generate-infographic"
+        hidden
+    >
+
+        <input
+            type="hidden"
+            name="project_id"
+            value="{{ project_id }}"
+        >
+
+        <input
+            type="hidden"
+            name="force"
+            value="0"
+            id="force-input"
+        >
+
+    </form>
+
+</div>
+
+<div
+    id="loading-overlay"
+    hidden
+    aria-busy="false"
+>
+
+    <div class="spinner"></div>
+
+    <p id="overlay-text">
+        Working…
+    </p>
+
+</div>
+
+<script src="/static/review.js"></script>
+<script src="/static/app.js"></script>
+
+</body>
+</html>

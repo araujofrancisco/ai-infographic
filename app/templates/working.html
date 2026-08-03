@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+    <meta charset="UTF-8">
+
+    <title>
+        Working…
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="/static/style.css"
+    >
+
+</head>
+
+<body>
+
+<div
+    id="loading-overlay"
+    aria-busy="true"
+>
+
+    <div class="spinner"></div>
+
+    <p>
+        {{ message }}
+    </p>
+
+    <p
+        class="working-note"
+        id="progress-note"
+        hidden
+    ></p>
+
+    <div
+        id="progress-wrap"
+        class="progress-wrap"
+        hidden
+    >
+
+        <div
+            id="progress-bar"
+            class="progress-bar"
+        ></div>
+
+    </div>
+
+    <p
+        class="working-note"
+        id="elapsed"
+    ></p>
+
+    <p
+        class="working-note"
+    >
+        This page updates automatically when finished.
+    </p>
+
+</div>
+
+<div
+    id="error-box"
+    class="container"
+    hidden
+>
+
+    <div
+        class="error"
+        id="error-text"
+    ></div>
+
+    <a
+        class="back-link"
+        href="/"
+    >
+        ← Home
+    </a>
+
+</div>
+
+<script>
+    (function () {
+
+        var taskId = "{{ task_id }}";
+
+        var page = "{{ page }}";
+
+        var overlay = document.getElementById(
+            "loading-overlay"
+        );
+
+        var errorBox = document.getElementById(
+            "error-box"
+        );
+
+        var progressWrap = document.getElementById(
+            "progress-wrap"
+        );
+
+        var progressBar = document.getElementById(
+            "progress-bar"
+        );
+
+        var progressNote = document.getElementById(
+            "progress-note"
+        );
+
+        function showError(message) {
+
+            document.getElementById(
+                "error-text"
+            ).textContent = message;
+
+            overlay.hidden = true;
+
+            overlay.setAttribute(
+                "aria-busy",
+                "false"
+            );
+
+            errorBox.hidden = false;
+        }
+
+        function renderProgress(progress) {
+
+            if (
+                !progress
+                || !progress.total
+            ) {
+
+                return;
+            }
+
+            var current = progress.current || 0;
+
+            var total = progress.total;
+
+            var percent = Math.round(
+                (current / total) * 100
+            );
+
+            progressBar.style.width =
+                percent + "%";
+
+            progressNote.hidden = false;
+
+            progressNote.textContent = (
+                progress.message
+                || (current + " of " + total)
+            );
+
+            progressWrap.hidden = false;
+        }
+
+        var delay = 2000;
+
+        function schedule() {
+
+            delay = Math.min(
+                delay * 1.25,
+                5000
+            );
+
+            setTimeout(
+                poll,
+                delay
+            );
+        }
+
+        function poll() {
+
+            fetch(
+                "/tasks/" + taskId + "/status"
+            )
+            .then(function (response) {
+
+                if (!response.ok) {
+
+                    throw {
+                        status: response.status
+                    };
+                }
+
+                return response.json();
+            })
+            .then(function (data) {
+
+                renderProgress(
+                    data.progress
+                );
+
+                if (data.status === "succeeded") {
+
+                    var base = (
+                        page === "result"
+                    ) ? "/result/" : "/review/";
+
+                    window.location.href =
+                        base + data.project_id;
+
+                    return;
+                }
+
+                if (
+                    data.status === "failed"
+                    || data.status === "cancelled"
+                ) {
+
+                    window.location.href =
+                        "/tasks/" + taskId;
+
+                    return;
+                }
+
+                schedule();
+            })
+            .catch(function (error) {
+
+                if (
+                    error
+                    && error.status === 404
+                ) {
+
+                    showError(
+                        "This task is no longer available. " +
+                        "It may have been lost when the " +
+                        "server restarted. Please start again."
+                    );
+
+                    return;
+                }
+
+                schedule();
+            });
+        }
+
+        var start = Date.now();
+
+        setInterval(
+            function () {
+
+                var seconds = Math.round(
+                    (Date.now() - start) / 1000
+                );
+
+                var minutes = Math.floor(
+                    seconds / 60
+                );
+
+                var rest = seconds % 60;
+
+                var elapsed = document.getElementById(
+                    "elapsed"
+                );
+
+                if (elapsed) {
+
+                    elapsed.textContent =
+                        "Elapsed: " + minutes +
+                        "m " + rest + "s";
+                }
+            },
+            1000
+        );
+
+        poll();
+    })();
+</script>
+
+</body>
+</html>

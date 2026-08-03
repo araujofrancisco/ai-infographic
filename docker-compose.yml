@@ -1,0 +1,58 @@
+name: ai-infographic
+
+services:
+
+  comfyui:
+    image: yanwk/comfyui-boot:cu128-slim
+    container_name: infographic-comfyui
+    restart: unless-stopped
+
+    ports:
+      - "8188:8188"
+
+    volumes:
+      - ./comfyui/models:/root/ComfyUI/models
+      - ./comfyui/input:/root/ComfyUI/input
+      - ./comfyui/output:/root/ComfyUI/output
+      - ./comfyui/workflows:/root/ComfyUI/user/default/workflows
+
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities:
+                - gpu
+
+  infographic:
+    build:
+      context: ./app
+
+    container_name: infographic-generator
+    restart: unless-stopped
+
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+    ports:
+      - "${APP_PORT:-8090}:8080"
+
+    environment:
+      OLLAMA_URL: ${OLLAMA_URL}
+      OLLAMA_MODEL: ${OLLAMA_MODEL}
+      OLLAMA_MAX_ATTEMPTS: ${OLLAMA_MAX_ATTEMPTS:-3}
+      COMFYUI_URL: ${COMFYUI_URL}
+      COMFYUI_CHECKPOINT: ${COMFYUI_CHECKPOINT}
+      COMFYUI_MAX_WAIT_SECONDS: ${COMFYUI_MAX_WAIT_SECONDS:-1200}
+      TASK_TTL_SECONDS: ${TASK_TTL_SECONDS:-1800}
+      MAX_QUEUED_PER_KIND: ${MAX_QUEUED_PER_KIND:-2}
+      PROJECT_RETENTION_SECONDS: ${PROJECT_RETENTION_SECONDS:-2592000}
+      CLEANUP_INTERVAL_SECONDS: ${CLEANUP_INTERVAL_SECONDS:-3600}
+
+    volumes:
+      - ./output:/app/output
+      - ./projects:/app/projects
+
+    depends_on:
+      - comfyui

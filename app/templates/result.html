@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+    <meta charset="UTF-8">
+
+    <title>
+        Infographic Generated
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="/static/style.css"
+    >
+
+</head>
+
+<body>
+
+<div class="container">
+
+    <a
+        class="back-link"
+        href="/"
+    >
+        ← New infographic
+    </a>
+
+    <h1>
+        Infographic Generated
+    </h1>
+
+    <p>
+        Your infographic has been generated.
+    </p>
+
+    <div class="buttons">
+
+        <a
+            href="/files/{{ project_id }}/infographic.png"
+            target="_blank"
+            download
+        >
+            View PNG
+        </a>
+
+        <a
+            href="/files/{{ project_id }}/infographic.svg"
+            target="_blank"
+            download
+        >
+            View SVG
+        </a>
+
+        <a
+            href="/files/{{ project_id }}/infographic.pdf"
+            target="_blank"
+            download
+        >
+            View PDF
+        </a>
+
+        <a
+            class="secondary-link"
+            href="/review/{{ project_id }}"
+        >
+            Edit content
+        </a>
+
+    </div>
+
+    <form
+        method="post"
+        action="/generate-infographic"
+        data-loading
+        class="regenerate-form"
+    >
+
+        <input
+            type="hidden"
+            name="project_id"
+            value="{{ project_id }}"
+        >
+
+        <input
+            type="hidden"
+            name="force"
+            value="1"
+        >
+
+        <button
+            type="submit"
+            class="secondary"
+        >
+            Regenerate the illustration
+        </button>
+
+    </form>
+
+    <img
+        class="preview"
+        src="/files/{{ project_id }}/infographic.png"
+    >
+
+</div>
+
+<div
+    id="loading-overlay"
+    hidden
+>
+
+    <div class="spinner"></div>
+
+    <p>
+        Rendering the page illustration with ComfyUI.
+        This can take a couple of minutes…
+    </p>
+
+</div>
+
+<script src="/static/app.js"></script>
+
+</body>
+</html>

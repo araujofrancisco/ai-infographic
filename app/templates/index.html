@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>AI Infographic Generator</title>
+
+    <link
+        rel="stylesheet"
+        href="/static/style.css"
+    >
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>AI Infographic Generator</h1>
+
+    <p>
+        Generate an illustrated infographic using
+        Ollama and ComfyUI.
+    </p>
+
+    {% if error %}
+    <div class="error">
+        {{ error }}
+    </div>
+    {% endif %}
+
+    <form
+        method="post"
+        action="/generate-content"
+        data-loading
+    >
+
+        <label for="topic">Topic</label>
+
+        <textarea
+            id="topic"
+            name="topic"
+            required
+            placeholder="Example: Docker Networking"
+        >{{ topic or "" }}</textarea>
+
+
+        <label for="audience">Audience</label>
+
+        <select id="audience" name="audience">
+
+            <option
+                {% if (audience or "Beginner") == "Beginner" %}selected{% endif %}
+            >Beginner</option>
+
+            <option
+                {% if (audience or "") == "Intermediate" %}selected{% endif %}
+            >Intermediate</option>
+
+            <option
+                {% if (audience or "") == "Advanced" %}selected{% endif %}
+            >Advanced</option>
+
+            <option
+                {% if (audience or "") == "Technical Professional" %}selected{% endif %}
+            >Technical Professional</option>
+
+        </select>
+
+
+        <label for="style">Visual Style</label>
+
+        <select id="style" name="style">
+
+            <option
+                {% if (style or "Technical / Modern") == "Technical / Modern" %}selected{% endif %}
+            >
+                Technical / Modern
+            </option>
+
+            <option
+                {% if (style or "") == "Minimal" %}selected{% endif %}
+            >
+                Minimal
+            </option>
+
+            <option
+                {% if (style or "") == "Isometric" %}selected{% endif %}
+            >
+                Isometric
+            </option>
+
+            <option
+                {% if (style or "") == "Educational" %}selected{% endif %}
+            >
+                Educational
+            </option>
+
+            <option
+                {% if (style or "") == "Hand Drawn" %}selected{% endif %}
+            >
+                Hand Drawn
+            </option>
+
+        </select>
+
+
+        <label for="section_count">Number of Sections</label>
+
+        <select id="section_count" name="section_count">
+
+            <option
+                {% if (section_count or 6) == 4 %}selected{% endif %}
+            >4</option>
+
+            <option
+                {% if (section_count or 6) == 6 %}selected{% endif %}
+            >6</option>
+
+            <option
+                {% if (section_count or 6) == 8 %}selected{% endif %}
+            >8</option>
+
+        </select>
+
+
+        <button type="submit">
+            Generate Content
+        </button>
+
+    </form>
+
+</div>
+
+<div
+    id="loading-overlay"
+    hidden
+    aria-busy="false"
+>
+    <div class="spinner"></div>
+    <p>
+        Generating content with Ollama.
+        This can take a minute or two…
+    </p>
+</div>
+
+<script src="/static/app.js"></script>
+
+</body>
+</html>
