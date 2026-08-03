@@ -46,6 +46,7 @@ services:
       COMFYUI_CHECKPOINT: ${COMFYUI_CHECKPOINT}
       COMFYUI_MAX_WAIT_SECONDS: ${COMFYUI_MAX_WAIT_SECONDS:-1200}
       TASK_TTL_SECONDS: ${TASK_TTL_SECONDS:-1800}
+      TASKS_DIR: ${TASKS_DIR:-/app/tasks}
       MAX_QUEUED_PER_KIND: ${MAX_QUEUED_PER_KIND:-2}
       PROJECT_RETENTION_SECONDS: ${PROJECT_RETENTION_SECONDS:-2592000}
       CLEANUP_INTERVAL_SECONDS: ${CLEANUP_INTERVAL_SECONDS:-3600}
@@ -53,6 +54,7 @@ services:
     volumes:
       - ./output:/app/output
       - ./projects:/app/projects
+      - ./tasks:/app/tasks
 
     depends_on:
       - comfyui

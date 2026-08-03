@@ -1,6 +1,7 @@
 import json
 import logging
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 
 from pydantic import ValidationError
@@ -16,6 +17,23 @@ logger = logging.getLogger(
 
 class ProjectNotFound(FileNotFoundError):
     pass
+
+
+def _now_iso() -> str:
+
+    return datetime.now(
+        timezone.utc
+    ).isoformat()
+
+
+def _mtime_iso(
+    path: Path
+) -> str:
+
+    return datetime.fromtimestamp(
+        path.stat().st_mtime,
+        tz=timezone.utc
+    ).isoformat()
 
 
 class ProjectRepository:
@@ -142,12 +160,16 @@ class ProjectRepository:
             uuid.uuid4()
         )
 
+        now = _now_iso()
+
         project = {
             "id": project_id,
             "topic": topic,
             "audience": audience,
             "style": style,
-            "content": content.model_dump()
+            "content": content.model_dump(),
+            "created_at": now,
+            "updated_at": now
         }
 
         self._save(
@@ -179,9 +201,132 @@ class ProjectRepository:
             content.model_dump()
         )
 
+        project["updated_at"] = (
+            _now_iso()
+        )
+
         self._save(
             project_id,
             project
+        )
+
+    def list_projects(
+        self
+    ) -> list[dict]:
+
+        projects = []
+
+        for project_dir in sorted(
+            self.root.iterdir()
+        ):
+
+            if not project_dir.is_dir():
+
+                continue
+
+            name = project_dir.name
+
+            try:
+
+                parsed = uuid.UUID(
+                    name
+                )
+
+            except ValueError:
+
+                continue
+
+            if str(
+                parsed
+            ) != name:
+
+                continue
+
+            project_file = (
+                project_dir
+                / "project.json"
+            )
+
+            if not project_file.exists():
+
+                continue
+
+            try:
+
+                with open(
+                    project_file,
+                    "r",
+                    encoding="utf-8"
+                ) as file:
+
+                    project = json.load(
+                        file
+                    )
+
+            except (
+                json.JSONDecodeError,
+                OSError
+            ) as exc:
+
+                logger.error(
+                    "project %s could not be listed: %s",
+                    name,
+                    exc
+                )
+
+                continue
+
+            content = project.get(
+                "content"
+            )
+
+            updated_at = project.get(
+                "updated_at"
+            ) or project.get(
+                "created_at"
+            )
+
+            created_at = project.get(
+                "created_at"
+            ) or updated_at
+
+            projects.append(
+                {
+                    "id": name,
+                    "topic": project.get(
+                        "topic",
+                        ""
+                    ),
+                    "audience": project.get(
+                        "audience",
+                        ""
+                    ),
+                    "style": project.get(
+                        "style",
+                        ""
+                    ),
+                    "created_at": created_at,
+                    "updated_at": (
+                        updated_at
+                        or _mtime_iso(
+                            project_file
+                        )
+                    ),
+                    "has_content": (
+                        isinstance(
+                            content,
+                            dict
+                        )
+                    )
+                }
+            )
+
+        return sorted(
+            projects,
+            key=lambda item: (
+                item["updated_at"]
+            ),
+            reverse=True
         )
 
     def _save(

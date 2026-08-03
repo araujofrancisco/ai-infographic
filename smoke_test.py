@@ -18,6 +18,17 @@ from types import SimpleNamespace
 
 APP_DIR = Path(__file__).parent / "app"
 
+os.environ.setdefault(
+    "TASKS_DIR",
+    str(
+        Path(
+            tempfile.mkdtemp(
+                prefix="infographic-tasks-"
+            )
+        )
+    )
+)
+
 MODULES = [
     "main",
     "config",

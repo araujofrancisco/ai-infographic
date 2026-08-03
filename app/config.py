@@ -65,6 +65,11 @@ class Settings:
         "/app/projects"
     )
 
+    TASKS_DIR = os.getenv(
+        "TASKS_DIR",
+        "/app/tasks"
+    )
+
     TASK_TTL_SECONDS = _int_env(
         "TASK_TTL_SECONDS",
         1800

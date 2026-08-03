@@ -1,7 +1,9 @@
 import asyncio
+import json
 import logging
 import shutil
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 from config import settings
@@ -121,6 +123,57 @@ class ProjectJanitor:
                 self.interval
             )
 
+    def _project_updated_epoch(
+        self,
+        project_file: Path
+    ) -> float:
+
+        try:
+
+            with open(
+                project_file,
+                "r",
+                encoding="utf-8"
+            ) as file:
+
+                project = json.load(
+                    file
+                )
+
+            updated = project.get(
+                "updated_at"
+            ) or project.get(
+                "created_at"
+            )
+
+            if updated:
+
+                parsed = datetime.fromisoformat(
+                    updated
+                )
+
+                if parsed.tzinfo is None:
+
+                    parsed = (
+                        parsed.replace(
+                            tzinfo=timezone.utc
+                        )
+                    )
+
+                return parsed.timestamp()
+
+        except (
+            json.JSONDecodeError,
+            OSError,
+            ValueError
+        ):
+
+            pass
+
+        return (
+            project_file.stat().st_mtime
+        )
+
     def cleanup_once(
         self
     ) -> int:
@@ -171,7 +224,9 @@ class ProjectJanitor:
 
             age = (
                 now
-                - project_file.stat().st_mtime
+                - self._project_updated_epoch(
+                    project_file
+                )
             )
 
             if age <= self.max_age:

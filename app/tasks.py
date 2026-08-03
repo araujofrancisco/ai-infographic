@@ -3,14 +3,21 @@ import logging
 import time
 import uuid
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import Awaitable, Callable
 
 from config import settings
 from exceptions import GenerationError
+from task_store import TaskStore
 
 
 logger = logging.getLogger(
     "infographic"
+)
+
+INTERRUPTED_MESSAGE = (
+    "The server restarted while this task was running. "
+    "Please start it again."
 )
 
 
@@ -74,12 +81,21 @@ class TaskManager:
     def __init__(
         self,
         max_queued_per_kind: int | None = None,
-        max_age_seconds: int | None = None
+        max_age_seconds: int | None = None,
+        store: TaskStore | None = None
     ):
 
         self._tasks: dict[str, Task] = {}
 
         self._slots: dict[str, asyncio.Semaphore] = {}
+
+        self.store = (
+            store
+            if store is not None
+            else TaskStore()
+        )
+
+        self._restored = False
 
         self.max_queued = (
             max_queued_per_kind
@@ -164,6 +180,12 @@ class TaskManager:
 
         task.coro = asyncio_task
 
+        self.store.append(
+            self._snapshot(
+                task
+            )
+        )
+
         return task.id
 
     def get(
@@ -216,6 +238,12 @@ class TaskManager:
 
             task.finished_at = (
                 time.monotonic()
+            )
+
+            self.store.append(
+                self._snapshot(
+                    task
+                )
             )
 
         return True
@@ -305,6 +333,132 @@ class TaskManager:
             "finished_at": task.finished_at
         }
 
+    def _snapshot(
+        self,
+        task: Task
+    ) -> dict:
+
+        snapshot = self.to_dict(
+            task
+        )
+
+        snapshot["form"] = (
+            task.form
+        )
+
+        snapshot["ts"] = (
+            datetime.now(
+                timezone.utc
+            ).isoformat()
+        )
+
+        return snapshot
+
+    def restore(
+        self
+    ) -> int:
+
+        if self._restored:
+
+            return 0
+
+        self._restored = True
+
+        now = time.monotonic()
+
+        latest: dict[str, dict] = {}
+
+        for snapshot in self.store.read():
+
+            latest[
+                snapshot.get(
+                    "id"
+                )
+            ] = snapshot
+
+        restored = 0
+
+        for task_id, snapshot in latest.items():
+
+            if not task_id:
+
+                continue
+
+            status = snapshot.get(
+                "status"
+            )
+
+            task = Task(
+                id=task_id,
+                kind=snapshot.get(
+                    "kind",
+                    ""
+                ),
+                form=snapshot.get(
+                    "form",
+                    {}
+                )
+            )
+
+            task.project_id = (
+                snapshot.get(
+                    "project_id"
+                )
+            )
+
+            task.result = (
+                snapshot.get(
+                    "result",
+                    {}
+                )
+            )
+
+            task.progress = (
+                snapshot.get(
+                    "progress",
+                    {}
+                )
+            )
+
+            if status in (
+                "pending",
+                "running"
+            ):
+
+                task.status = "failed"
+
+                task.error = INTERRUPTED_MESSAGE
+
+                logger.info(
+                    "task %s (%s) interrupted by restart",
+                    task_id,
+                    task.kind
+                )
+
+            else:
+
+                task.status = status
+
+                task.error = (
+                    snapshot.get(
+                        "error"
+                    )
+                )
+
+            task.created_at = now
+
+            task.started_at = now
+
+            task.finished_at = now
+
+            self._tasks[
+                task_id
+            ] = task
+
+            restored += 1
+
+        return restored
+
     def _progress_for(
         self,
         task: Task
@@ -358,6 +512,12 @@ class TaskManager:
 
             task.started_at = (
                 time.monotonic()
+            )
+
+            self.store.append(
+                self._snapshot(
+                    task
+                )
             )
 
             logger.info(
@@ -422,6 +582,12 @@ class TaskManager:
 
             task.finished_at = (
                 time.monotonic()
+            )
+
+            self.store.append(
+                self._snapshot(
+                    task
+                )
             )
 
             logger.info(
