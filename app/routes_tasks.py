@@ -35,6 +35,83 @@ repo = ProjectRepository()
 router = APIRouter()
 
 
+def _field_value(
+    value
+) -> str:
+
+    if isinstance(
+        value,
+        bool
+    ):
+
+        return "1" if value else "0"
+
+    return str(
+        value
+    )
+
+
+def _retry_for(
+    task
+) -> dict | None:
+
+    form = task.form or {}
+
+    if task.kind == "infographic":
+
+        fields = [
+            {
+                "name": name,
+                "value": _field_value(
+                    form[name]
+                )
+            }
+            for name in [
+                "project_id",
+                "force"
+            ]
+            if name in form
+        ]
+
+        if not fields:
+
+            return None
+
+        return {
+            "action": "/generate-infographic",
+            "button": (
+                "Try generating the infographic again"
+            ),
+            "fields": fields
+        }
+
+    fields = [
+        {
+            "name": name,
+            "value": _field_value(
+                form[name]
+            )
+        }
+        for name in [
+            "topic",
+            "audience",
+            "style",
+            "section_count"
+        ]
+        if name in form
+    ]
+
+    if not fields:
+
+        return None
+
+    return {
+        "action": "/generate-content",
+        "button": "Try generating content again",
+        "fields": fields
+    }
+
+
 @router.get(
     "/tasks/{task_id}/status"
 )
@@ -113,7 +190,10 @@ async def task_page(
                 "request": request,
                 "project_id": project_id,
                 "content": content,
-                "error": error
+                "error": error,
+                "retry": _retry_for(
+                    task
+                )
             }
         )
 
@@ -123,6 +203,9 @@ async def task_page(
         context={
             "request": request,
             "error": error,
+            "retry": _retry_for(
+                task
+            ),
             "topic": task.form.get(
                 "topic",
                 ""

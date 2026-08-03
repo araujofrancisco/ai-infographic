@@ -106,6 +106,139 @@ def test_wrap_short_text_is_single_line():
     ]
 
 
+def test_build_svg_rejects_empty_image_paths():
+
+    content = make_content(
+        [
+            make_section(
+                index
+            )
+            for index in range(3)
+        ]
+    )
+
+    try:
+
+        renderer.build_svg(
+            content=content,
+            image_paths=[]
+        )
+
+    except ValueError:
+
+        pass
+
+    else:
+
+        raise AssertionError(
+            "build_svg should reject empty image paths"
+        )
+
+
+def test_cap_lines_truncates_with_ellipsis():
+
+    capped = renderer._cap_lines(
+        [
+            "line one",
+            "line two",
+            "line three"
+        ]
+    )
+
+    assert len(capped) == 2
+
+    assert (
+        renderer.ELLIPSIS
+        in capped[1]
+    )
+
+
+def test_cap_lines_short_passes_through():
+
+    lines = [
+        "line one",
+        "line two"
+    ]
+
+    assert (
+        renderer._cap_lines(
+            lines
+        )
+        == lines
+    )
+
+
+def test_plan_header_wraps_long_title():
+
+    content = make_content(
+        [
+            make_section(
+                index
+            )
+            for index in range(3)
+        ]
+    )
+
+    content.title = (
+        "A very long infographic title that absolutely must wrap "
+        "across multiple lines instead of overflowing the column"
+    )
+
+    header = renderer._plan_header(
+        content=content,
+        layout=renderer._metrics(1.0)
+    )
+
+    assert len(
+        header.title_lines
+    ) == renderer.MAX_HEADER_LINES
+
+    assert (
+        renderer.ELLIPSIS
+        in header.title_lines[-1]
+    )
+
+    assert (
+        header.block_start
+        > renderer.MARGIN
+        + renderer._metrics(1.0).title_gap
+        + renderer._metrics(1.0).subtitle_gap
+    )
+
+
+def test_build_svg_renders_wrapped_title():
+
+    content = make_content(
+        [
+            make_section(
+                index
+            )
+            for index in range(3)
+        ]
+    )
+
+    content.title = (
+        "A very long infographic title that absolutely must wrap "
+        "across multiple lines instead of overflowing the column"
+    )
+
+    with tempfile.TemporaryDirectory() as tmp:
+
+        paths = make_paths(
+            Path(tmp),
+            1
+        )
+
+        svg = renderer.build_svg(
+            content=content,
+            image_paths=paths
+        )
+
+        assert svg.count(
+            renderer.ELLIPSIS
+        ) >= 1
+
+
 def test_fit_scale_light_is_full():
 
     light = make_content(

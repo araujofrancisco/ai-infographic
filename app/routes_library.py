@@ -3,6 +3,7 @@ import shutil
 import uuid
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import quote
 
 from fastapi import (
     APIRouter,
@@ -60,6 +61,8 @@ TERMINAL_STATUSES = (
     "failed",
     "cancelled"
 )
+
+PAGE_SIZE = 12
 
 
 def _is_uuid(
@@ -122,7 +125,9 @@ def _friendly_duration(
     )
 
 
-def _project_cards() -> list[dict]:
+def _project_cards(
+    q: str = ""
+) -> list[dict]:
 
     cards = []
 
@@ -156,7 +161,43 @@ def _project_cards() -> list[dict]:
             }
         )
 
-    return cards
+    needle = (
+        q.strip().lower()
+        if q
+        else ""
+    )
+
+    if not needle:
+
+        return cards
+
+    return [
+        card
+        for card in cards
+        if (
+            needle in (
+                card.get(
+                    "topic",
+                    ""
+                )
+                or ""
+            ).lower()
+            or needle in (
+                card.get(
+                    "audience",
+                    ""
+                )
+                or ""
+            ).lower()
+            or needle in (
+                card.get(
+                    "style",
+                    ""
+                )
+                or ""
+            ).lower()
+        )
+    ]
 
 
 def _activity_feed(
@@ -318,8 +359,47 @@ def _activity_feed(
     response_class=HTMLResponse
 )
 async def library(
-    request: Request
+    request: Request,
+    q: str = "",
+    page: int = 1
 ):
+
+    cards = _project_cards(
+        q
+    )
+
+    total = len(
+        cards
+    )
+
+    total_pages = max(
+        1,
+        -(
+            -total // PAGE_SIZE
+        )
+    )
+
+    page = min(
+        max(
+            page,
+            1
+        ),
+        total_pages
+    )
+
+    start = (
+        (page - 1)
+        * PAGE_SIZE
+    )
+
+    shown = cards[
+        start:
+        start + PAGE_SIZE
+    ]
+
+    q_encoded = quote(
+        q
+    )
 
     return templates.TemplateResponse(
         request=request,
@@ -327,7 +407,13 @@ async def library(
         context={
             "request": request,
             "active": "library",
-            "projects": _project_cards()
+            "projects": shown,
+            "q": q,
+            "q_encoded": q_encoded,
+            "page": page,
+            "total_pages": total_pages,
+            "has_prev": page > 1,
+            "has_next": page < total_pages
         }
     )
 

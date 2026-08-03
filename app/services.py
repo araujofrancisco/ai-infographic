@@ -158,15 +158,13 @@ class RenderingService:
             / "page.png"
         )
 
-        if (
+        reuse_page = (
             not force
             and image_path.exists()
             and image_path.stat().st_size > 0
-        ):
+        )
 
-            pass
-
-        else:
+        if not reuse_page:
 
             prompt = self._build_page_prompt(
                 project
@@ -314,6 +312,27 @@ class RenderingService:
             ""
         )
 
+        motifs = self._section_motifs(
+            project
+        )
+
+        motifs_block = ""
+
+        if motifs:
+
+            motifs_block = (
+                "Section motifs:\n\n"
+                "Subtly weave the following visual motifs into the "
+                "main subject on the right and center of the frame. "
+                "Do not draw any text, labels, letters, or symbols. "
+                "Keep the left 45% calm and empty.\n\n"
+                + "\n".join(
+                    f"- {motif}"
+                    for motif in motifs
+                )
+                + "\n\n"
+            )
+
         return f"""
 Create a professional educational full-page illustration for an infographic poster.
 
@@ -323,7 +342,7 @@ Theme:
 Visual style:
 {style}
 
-Composition requirements:
+{motifs_block}Composition requirements:
 
 The illustration fills the entire portrait frame edge to edge.
 Place the main subject and visual interest on the RIGHT and CENTER of the frame.
@@ -340,3 +359,74 @@ Cohesive color palette.
 Strong composition with a natural reading flow from left to right.
 The finished artwork should read as a well-designed poster background ready to receive an overlaid headline and body copy.
 """
+
+    @staticmethod
+    def _section_motifs(
+        project,
+        limit: int = 6,
+        max_chars: int = 220
+    ) -> list[str]:
+
+        sections = (
+            project.get(
+                "content",
+                {}
+            ).get(
+                "sections",
+                []
+            )
+            or []
+        )
+
+        motifs = []
+
+        seen = set()
+
+        for section in sections:
+
+            raw = (
+                section.get(
+                    "visual_description",
+                    ""
+                )
+                if isinstance(
+                    section,
+                    dict
+                )
+                else getattr(
+                    section,
+                    "visual_description",
+                    ""
+                )
+            )
+
+            motif = raw.strip()
+
+            if not motif:
+
+                continue
+
+            key = motif.lower()
+
+            if key in seen:
+
+                continue
+
+            seen.add(key)
+
+            if len(motif) > max_chars:
+
+                motif = (
+                    motif[: max_chars - 3]
+                    + "..."
+                )
+
+            motifs.append(
+                motif
+            )
+
+            if len(motifs) >= limit:
+
+                break
+
+        return motifs

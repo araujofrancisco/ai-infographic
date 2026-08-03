@@ -29,6 +29,44 @@
         Every infographic generated on this server.
     </p>
 
+    <form
+        method="get"
+        action="/projects"
+        class="search-form"
+    >
+
+        <input
+            type="search"
+            name="q"
+            value="{{ q or '' }}"
+            placeholder="Search by topic, audience, or style"
+            aria-label="Search projects"
+        >
+
+        <button type="submit">
+            Search
+        </button>
+
+    </form>
+
+    {% if q %}
+
+    <div class="search-clear">
+
+        Showing results for
+        <strong>"{{ q }}"</strong>
+
+        <a
+            class="secondary-link"
+            href="/projects"
+        >
+            Clear search
+        </a>
+
+    </div>
+
+    {% endif %}
+
     {% if projects %}
 
     <div class="project-grid">
@@ -119,6 +157,72 @@
         </div>
 
         {% endfor %}
+
+    </div>
+
+    {% if total_pages > 1 %}
+
+    <nav
+        class="pager"
+        aria-label="Pagination"
+    >
+
+        {% if has_prev %}
+
+        <a
+            class="secondary-link"
+            href="/projects?q={{ q_encoded }}&amp;page={{ page - 1 }}"
+        >
+            ← Prev
+        </a>
+
+        {% else %}
+
+        <span class="pager-muted">
+            ← Prev
+        </span>
+
+        {% endif %}
+
+        <span class="pager-page">
+            Page {{ page }} of {{ total_pages }}
+        </span>
+
+        {% if has_next %}
+
+        <a
+            class="secondary-link"
+            href="/projects?q={{ q_encoded }}&amp;page={{ page + 1 }}"
+        >
+            Next →
+        </a>
+
+        {% else %}
+
+        <span class="pager-muted">
+            Next →
+        </span>
+
+        {% endif %}
+
+    </nav>
+
+    {% endif %}
+
+    {% elif q %}
+
+    <div class="empty-state">
+
+        <p>
+            No projects match "{{ q }}".
+        </p>
+
+        <a
+            class="primary-link"
+            href="/projects"
+        >
+            Clear search
+        </a>
 
     </div>
 

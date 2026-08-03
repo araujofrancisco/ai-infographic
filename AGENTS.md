@@ -70,7 +70,9 @@ text on it and composites an A4 SVG/PNG/PDF (cairosvg).
   `ProjectRepository.list_projects()`, showing draft vs rendered status
   (rendered = all of svg/png/pdf exist in `output/`), with actions to open,
   download the PDF, or hard-delete (`POST /projects/{id}/delete` refuses a 409
-  while an active task references the project). `GET /projects/{id}/thumbnail`
+  while an active task references the project). It accepts `q` (case-insensitive
+  filter on topic/audience/style) and `page` (paginated at `PAGE_SIZE`, default
+  12). `GET /projects/{id}/thumbnail`
   serves the rendered `infographic.png` or the raw `page.png` via a
   uuid-guarded resolver. `GET /activity` renders the tail of the task journal
   with status/duration and links back to projects. A `_nav.html` partial
@@ -90,11 +92,16 @@ text on it and composites an A4 SVG/PNG/PDF (cairosvg).
 - `app/workflows/illustration_api.json` is the ComfyUI API workflow.
   `comfyui_client.py` hardcodes its node IDs (checkpoint=1, positive=3,
   negative=4, ksampler=5, latent=9, save_image=13) and sets the latent to
-  `IMAGE_WIDTH`x`IMAGE_HEIGHT` (1024x1448 portrait). Editing the workflow means
-  re-syncing those constants.
+  `IMAGE_WIDTH`x`IMAGE_HEIGHT` (1024x1448 portrait). `build_workflow` also
+  overrides the checkpoint loader's `ckpt_name` from `COMFYUI_CHECKPOINT`
+  (it is honored, not decorative). Editing the workflow means re-syncing those
+  constants.
 - `renderer.py` auto-fits: `_fit_scale` shrinks fonts/padding (min
   scale 0.6) so all sections fit one A4 page. `build_svg(content, paths)`
-  fits by default; pass `scale=` to pin it. Layout is a true "poster": the
+  fits by default; pass `scale=` to pin it. `build_svg` rejects an empty
+  `image_paths` list. The title and subtitle are wrapped to at most 2 lines
+  each (ellipsis) via `_plan_header`/`_cap_lines`, and the measured header
+  height shifts the section blocks down. Layout is a true "poster": the
   first image in `paths` is the full-bleed page illustration (cover-cropped),
   and the text is set directly INTO the artwork with NO card boxes. A light
   `pageScrim` unifies the art, and a left `textScrim` (horizontal dark
@@ -125,11 +132,14 @@ text on it and composites an A4 SVG/PNG/PDF (cairosvg).
 - pytest `tests/` covers storage timestamps + `list_projects()` (ordering,
   corrupt/uuid filtering, mtime fallback), the task journal lifecycle and
   `TaskManager.restore()` (terminal replay + interrupted-as-failed), renderer
-  wrap/fit boundaries, library/delete/thumbnail/activity routes via
-  `TestClient`, and a **ComfyUI workflow contract test** that asserts every
+  wrap/fit boundaries + header wrap/empty-image guard, `services.py`
+  (page-prompt motifs, `create_content`, `generate` resume vs `force`), UI/task
+  routes via `TestClient` (queue-full, `save-content` JSON 400/404, error-page
+  retry forms), library/delete/thumbnail/activity/search/pagination routes,
+  and a **ComfyUI workflow contract test** that asserts every
   node-ID constant in `comfyui_client.py` exists in `illustration_api.json`
-  with the expected type and wiring (guards the "edit workflow, re-sync
-  constants" foot-gun).
+  with the expected type and wiring and that `build_workflow` applies
+  `COMFYUI_CHECKPOINT` (guards the "edit workflow, re-sync constants" foot-gun).
 - Dependency-light checks (no venv needed): `python3 smoke_test.py` - AST-parses
   every module, asserts `ComfyUIClient` methods are inside the class, runs
   `renderer.build_svg()` with duck-typed content (stubs pydantic if missing),
@@ -189,7 +199,9 @@ text on it and composites an A4 SVG/PNG/PDF (cairosvg).
 - `cairosvg` is imported lazily inside `render_infographic` (not at module top)
   so `build_svg()` can be tested without libcairo.
 - Task failure pages reuse `index.html`/`review.html` with an `error` banner
-  (form values are echoed back from the task's stored `form`). `working.html`
+  (form values are echoed back from the task's stored `form`) plus a one-click
+  retry form (`_retry.html` partial) that re-submits the stored form via
+  `data-loading`. `working.html`
   JS lives inline; `static/app.js` handles the form submit spinner on
   index/result pages; `static/review.js` owns review-page save/regen logic;
   `static/library.js` owns the library delete flow. A `_nav.html` partial is

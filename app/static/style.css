@@ -237,6 +237,16 @@ button:hover {
         8px;
 }
 
+.retry-form {
+    margin-bottom:
+        24px;
+}
+
+.retry-form button {
+    margin:
+        0;
+}
+
 button.secondary {
     background:
         #f1f5f9;
@@ -803,6 +813,88 @@ button.secondary:hover {
     margin-bottom:
 
         20px;
+}
+
+.search-form {
+    display:
+
+        flex;
+
+    gap:
+
+        10px;
+
+    margin-bottom:
+
+        8px;
+}
+
+.search-form input {
+    flex:
+
+        1;
+
+    min-width:
+
+        0;
+
+    margin-bottom:
+
+        0;
+}
+
+.search-clear {
+    margin-bottom:
+
+        20px;
+
+    color:
+
+        #64748b;
+}
+
+.search-clear a {
+    margin-left:
+
+        10px;
+}
+
+.pager {
+    display:
+
+        flex;
+
+    align-items:
+
+        center;
+
+    justify-content:
+
+        center;
+
+    gap:
+
+        20px;
+
+    margin-top:
+
+        28px;
+}
+
+.pager-page {
+    color:
+
+        #64748b;
+
+    font-size:
+
+        14px;
+}
+
+.pager-muted {
+    color:
+
+        #cbd5e1;
 }
 
 .activity-table {

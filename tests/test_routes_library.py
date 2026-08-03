@@ -5,6 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import main
+import routes_library
 from config import settings
 from tasks import Task, task_manager
 
@@ -342,3 +343,147 @@ def test_activity_shows_journal_entries(
     assert "Failed" in html
 
     assert "Ollama is not reachable" in html
+
+
+def test_library_search_filters_by_topic(
+    client
+):
+
+    make_project(
+        topic="Docker Networking"
+    )
+
+    make_project(
+        topic="Kubernetes Basics"
+    )
+
+    make_project(
+        topic="Postgres Indexing"
+    )
+
+    response = client.get(
+        "/projects?q=kuber"
+    )
+
+    assert response.status_code == 200
+
+    html = response.text
+
+    assert "Kubernetes Basics" in html
+
+    assert "Docker Networking" not in html
+
+    assert "Postgres Indexing" not in html
+
+    assert 'value="kuber"' in html
+
+
+def test_library_search_no_match_shows_empty_state(
+    client
+):
+
+    make_project(
+        topic="Docker Networking"
+    )
+
+    response = client.get(
+        "/projects?q=zzz"
+    )
+
+    assert response.status_code == 200
+
+    html = response.text
+
+    assert "No projects match" in html
+
+    assert "Clear search" in html
+
+    assert "Docker Networking" not in html
+
+
+def test_library_pagination(
+    client,
+    monkeypatch
+):
+
+    monkeypatch.setattr(
+        routes_library,
+        "PAGE_SIZE",
+        2
+    )
+
+    for index in range(5):
+
+        make_project(
+            topic=f"Topic {index}"
+        )
+
+    first = client.get(
+        "/projects"
+    )
+
+    assert first.status_code == 200
+
+    first_html = first.text
+
+    assert "Page 1 of 3" in first_html
+
+    assert "Topic 4" in first_html
+
+    assert "Topic 3" in first_html
+
+    assert "Topic 0" not in first_html
+
+    assert "page=2" in first_html
+
+    assert "pager-muted" in first_html
+
+    last = client.get(
+        "/projects?page=3"
+    )
+
+    last_html = last.text
+
+    assert "Page 3 of 3" in last_html
+
+    assert "Topic 0" in last_html
+
+    assert "page=4" not in last_html
+
+    clamped = client.get(
+        "/projects?page=99"
+    )
+
+    assert "Page 3 of 3" in clamped.text
+
+
+def test_library_search_preserves_query_in_pager(
+    client,
+    monkeypatch
+):
+
+    monkeypatch.setattr(
+        routes_library,
+        "PAGE_SIZE",
+        2
+    )
+
+    for index in range(5):
+
+        make_project(
+            topic=f"Docker {index}"
+        )
+
+    response = client.get(
+        "/projects?q=docker&page=2"
+    )
+
+    assert response.status_code == 200
+
+    html = response.text
+
+    assert "Page 2 of 3" in html
+
+    assert "q=docker" in html
+
+    assert "page=3" in html

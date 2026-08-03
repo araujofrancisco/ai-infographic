@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 from comfyui_client import ComfyUIClient
+from config import settings
 
 WORKFLOW_PATH = (
     Path(__file__).resolve().parent.parent
@@ -121,6 +122,13 @@ def test_build_workflow_injects_values():
 
     assert (
         workflow[
+            ComfyUIClient.CHECKPOINT_NODE
+        ]["inputs"]["ckpt_name"]
+        == settings.COMFYUI_CHECKPOINT
+    )
+
+    assert (
+        workflow[
             ComfyUIClient.POSITIVE_PROMPT_NODE
         ]["inputs"]["text"]
         == "positive"
@@ -159,6 +167,32 @@ def test_build_workflow_injects_values():
             ComfyUIClient.SAVE_IMAGE_NODE
         ]["inputs"]["filename_prefix"]
         == ComfyUIClient.FILENAME_PREFIX
+    )
+
+
+def test_build_workflow_uses_configured_checkpoint(
+    monkeypatch
+):
+
+    monkeypatch.setattr(
+        settings,
+        "COMFYUI_CHECKPOINT",
+        "custom_model.safetensors"
+    )
+
+    client = ComfyUIClient()
+
+    workflow = client.build_workflow(
+        prompt="p",
+        negative_prompt="n",
+        seed=1
+    )
+
+    assert (
+        workflow[
+            ComfyUIClient.CHECKPOINT_NODE
+        ]["inputs"]["ckpt_name"]
+        == "custom_model.safetensors"
     )
 
 

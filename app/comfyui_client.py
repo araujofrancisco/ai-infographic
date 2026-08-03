@@ -69,6 +69,12 @@ class ComfyUIClient:
             )
 
         workflow[
+            self.CHECKPOINT_NODE
+        ]["inputs"]["ckpt_name"] = (
+            settings.COMFYUI_CHECKPOINT
+        )
+
+        workflow[
             self.POSITIVE_PROMPT_NODE
         ]["inputs"]["text"] = prompt
 

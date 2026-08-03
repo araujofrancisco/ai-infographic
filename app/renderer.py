@@ -54,6 +54,10 @@ DIVIDER_TILE = 14
 MIN_SCALE = 0.6
 SCALE_STEP = 0.05
 
+MAX_HEADER_LINES = 2
+
+ELLIPSIS = "…"
+
 FONT_FAMILY = "Liberation Sans, DejaVu Sans, sans-serif"
 
 THEMES = [
@@ -125,6 +129,16 @@ class BulletItem:
     is_example: bool
 
 
+@dataclass(frozen=True)
+class SimpleHeader:
+
+    title_lines: list[str]
+    subtitle_lines: list[str]
+    title_line_height: int
+    subtitle_line_height: int
+    block_start: int
+
+
 def render_infographic(
     content: InfographicContent,
     image_paths: list[str],
@@ -177,6 +191,12 @@ def build_svg(
     scale: float | None = None
 ) -> str:
 
+    if not image_paths:
+
+        raise ValueError(
+            "build_svg requires at least one image path"
+        )
+
     if scale is None:
 
         scale = _fit_scale(
@@ -188,8 +208,13 @@ def build_svg(
         scale
     )
 
+    header = _plan_header(
+        content=content,
+        layout=layout
+    )
+
     blocks, _total = _plan_layout(
-        sections=content.sections,
+        content=content,
         layout=layout
     )
 
@@ -277,32 +302,51 @@ def build_svg(
         + layout.text_pad
     )
 
-    y = MARGIN
-
-    svg.extend(
-        _shadowed(
-            text_x,
-            y + layout.title_font,
-            content.title,
-            size=layout.title_font,
-            weight="bold",
-            color="#FFFFFF"
-        )
+    baseline = (
+        MARGIN
+        + layout.title_font
     )
 
-    y += layout.title_gap
+    for line in header.title_lines:
 
-    svg.extend(
-        _shadowed(
-            text_x,
-            y + layout.subtitle_font,
-            content.subtitle,
-            size=layout.subtitle_font,
-            weight="normal",
-            color="#E8EDF5",
-            opacity=0.9
+        svg.extend(
+            _shadowed(
+                text_x,
+                baseline,
+                line,
+                size=layout.title_font,
+                weight="bold",
+                color="#FFFFFF"
+            )
         )
+
+        baseline += header.title_line_height
+
+    baseline = (
+        MARGIN
+        + (
+            len(header.title_lines) - 1
+        )
+        * header.title_line_height
+        + layout.title_gap
+        + layout.subtitle_font
     )
+
+    for line in header.subtitle_lines:
+
+        svg.extend(
+            _shadowed(
+                text_x,
+                baseline,
+                line,
+                size=layout.subtitle_font,
+                weight="normal",
+                color="#E8EDF5",
+                opacity=0.9
+            )
+        )
+
+        baseline += header.subtitle_line_height
 
     for index, block in enumerate(
         blocks
@@ -850,15 +894,102 @@ def _layout_height(
     )
 
     _blocks, total = _plan_layout(
-        sections=content.sections,
+        content=content,
         layout=layout
     )
 
     return total
 
 
+def _plan_header(
+    content: InfographicContent,
+    layout: Layout
+):
+
+    text_width = (
+        COLUMN_WIDTH
+        - (2 * layout.text_pad)
+    )
+
+    title_lines = _cap_lines(
+        _wrap(
+            text=content.title,
+            max_width=text_width,
+            font_size=layout.title_font
+        )
+    )
+
+    subtitle_lines = _cap_lines(
+        _wrap(
+            text=content.subtitle,
+            max_width=text_width,
+            font_size=layout.subtitle_font
+        )
+    )
+
+    title_line_height = round(
+        layout.title_font
+        * TITLE_LINE_FACTOR
+    )
+
+    subtitle_line_height = round(
+        layout.subtitle_font
+        * TITLE_LINE_FACTOR
+    )
+
+    block_start = (
+        MARGIN
+        + (
+            len(title_lines) - 1
+        )
+        * title_line_height
+        + layout.title_gap
+        + (
+            len(subtitle_lines) - 1
+        )
+        * subtitle_line_height
+        + layout.subtitle_gap
+    )
+
+    return SimpleHeader(
+        title_lines=title_lines,
+        subtitle_lines=subtitle_lines,
+        title_line_height=title_line_height,
+        subtitle_line_height=subtitle_line_height,
+        block_start=block_start
+    )
+
+
+def _cap_lines(
+    lines: list[str],
+    max_lines: int = MAX_HEADER_LINES
+) -> list[str]:
+
+    if len(lines) <= max_lines:
+
+        return lines
+
+    kept = lines[:max_lines]
+
+    last = kept[-1]
+
+    if len(last) > 4:
+
+        kept[-1] = (
+            last[:-4].rstrip()
+            + " "
+            + ELLIPSIS
+        )
+
+    else:
+
+        kept[-1] = last + ELLIPSIS
+
+    return kept
+
+
 def _plan_layout(
-    sections,
+    content: InfographicContent,
     layout: Layout
 ):
 
@@ -879,14 +1010,13 @@ def _plan_layout(
 
     blocks = []
 
-    y = (
-        MARGIN
-        + layout.title_gap
-        + layout.subtitle_gap
-    )
+    y = _plan_header(
+        content=content,
+        layout=layout
+    ).block_start
 
     for index, section in enumerate(
-        sections
+        content.sections
     ):
 
         title_lines = _wrap(
