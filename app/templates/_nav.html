@@ -1,0 +1,24 @@
+<nav class="topnav">
+
+    <a
+        href="/"
+        {% if active == "new" %}class="active"{% endif %}
+    >
+        New infographic
+    </a>
+
+    <a
+        href="/projects"
+        {% if active == "library" %}class="active"{% endif %}
+    >
+        Library
+    </a>
+
+    <a
+        href="/activity"
+        {% if active == "activity" %}class="active"{% endif %}
+    >
+        Activity
+    </a>
+
+</nav>

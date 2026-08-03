@@ -27,6 +27,10 @@ from routes_tasks import (
     router as tasks_router
 )
 
+from routes_library import (
+    router as library_router
+)
+
 from tasks import (
     task_manager
 )
@@ -132,4 +136,8 @@ app.include_router(
 
 app.include_router(
     tasks_router
+)
+
+app.include_router(
+    library_router
 )

@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+    <meta charset="UTF-8">
+
+    <title>
+        Infographic Library
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="/static/style.css"
+    >
+
+</head>
+
+<body>
+
+{% include "_nav.html" %}
+
+<div class="container">
+
+    <h1>
+        Library
+    </h1>
+
+    <p>
+        Every infographic generated on this server.
+    </p>
+
+    {% if projects %}
+
+    <div class="project-grid">
+
+        {% for project in projects %}
+
+        <div
+            class="project-card"
+            data-id="{{ project.id }}"
+        >
+
+            <a
+                class="card-thumb-link"
+                href="{{ "/result/" + project.id if project.has_output else "/review/" + project.id }}"
+            >
+
+                {% if project.has_thumbnail %}
+
+                <img
+                    class="card-thumb"
+                    src="/projects/{{ project.id }}/thumbnail"
+                    alt=""
+                    loading="lazy"
+                >
+
+                {% else %}
+
+                <div class="card-thumb placeholder">
+                    No preview yet
+                </div>
+
+                {% endif %}
+
+            </a>
+
+            <div class="card-body">
+
+                <h3 class="card-title">
+                    {{ project.topic or "Untitled" }}
+                </h3>
+
+                <p class="card-meta">
+                    {{ project.style or "No style" }}
+                    &middot;
+                    {{ project.updated or project.created }}
+                </p>
+
+                <span
+                    class="chip {{ "chip-done" if project.has_output else "chip-draft" }}"
+                >
+                    {{ "Rendered" if project.has_output else "Draft" }}
+                </span>
+
+                <div class="card-actions">
+
+                    <a
+                        class="secondary-link"
+                        href="{{ "/result/" + project.id if project.has_output else "/review/" + project.id }}"
+                    >
+                        {{ "View" if project.has_output else "Continue" }}
+                    </a>
+
+                    {% if project.has_output %}
+
+                    <a
+                        class="secondary-link"
+                        href="/files/{{ project.id }}/infographic.pdf"
+                        download
+                    >
+                        PDF
+                    </a>
+
+                    {% endif %}
+
+                    <button
+                        type="button"
+                        class="link-danger"
+                        data-delete="{{ project.id }}"
+                        data-topic="{{ project.topic }}"
+                    >
+                        Delete
+                    </button>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        {% endfor %}
+
+    </div>
+
+    {% else %}
+
+    <div class="empty-state">
+
+        <p>
+            No infographics yet.
+        </p>
+
+        <a
+            class="primary-link"
+            href="/"
+        >
+            Generate your first infographic
+        </a>
+
+    </div>
+
+    {% endif %}
+
+</div>
+
+<div
+    id="delete-error"
+    class="container"
+    hidden
+>
+
+    <div
+        class="error"
+        id="delete-error-text"
+    ></div>
+
+</div>
+
+<script src="/static/library.js"></script>
+
+</body>
+</html>

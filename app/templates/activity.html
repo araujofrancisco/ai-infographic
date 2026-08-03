@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+    <meta charset="UTF-8">
+
+    <title>
+        Activity
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="/static/style.css"
+    >
+
+</head>
+
+<body>
+
+{% include "_nav.html" %}
+
+<div class="container">
+
+    <h1>
+        Activity
+    </h1>
+
+    <p>
+        Recent generation tasks.
+    </p>
+
+    {% if events %}
+
+    <table class="activity-table">
+
+        <thead>
+
+            <tr>
+
+                <th>Status</th>
+
+                <th>Task</th>
+
+                <th>Type</th>
+
+                <th>Duration</th>
+
+                <th>When</th>
+
+                <th></th>
+
+            </tr>
+
+        </thead>
+
+        <tbody>
+
+            {% for event in events %}
+
+            <tr>
+
+                <td>
+
+                    <span class="chip chip-{{ event.status }}">
+                        {{ event.status_label }}
+                    </span>
+
+                </td>
+
+                <td>
+
+                    <div class="activity-task">
+                        {{ event.topic }}
+                    </div>
+
+                    <code class="activity-id">
+                        {{ event.id }}
+                    </code>
+
+                    {% if event.error %}
+
+                    <div
+                        class="activity-error"
+                        title="{{ event.error }}"
+                    >
+                        {{ event.error }}
+                    </div>
+
+                    {% endif %}
+
+                </td>
+
+                <td>
+                    {{ event.kind }}
+                </td>
+
+                <td>
+                    {{ event.duration or "—" }}
+                </td>
+
+                <td>
+                    {{ event.when }}
+                </td>
+
+                <td>
+
+                    {% if event.project_id %}
+
+                    <a
+                        class="secondary-link"
+                        href="/review/{{ event.project_id }}"
+                    >
+                        Open
+                    </a>
+
+                    {% endif %}
+
+                </td>
+
+            </tr>
+
+            {% endfor %}
+
+        </tbody>
+
+    </table>
+
+    {% else %}
+
+    <div class="empty-state">
+
+        <p>
+            No activity yet.
+        </p>
+
+        <a
+            class="primary-link"
+            href="/"
+        >
+            Generate an infographic
+        </a>
+
+    </div>
+
+    {% endif %}
+
+</div>
+
+</body>
+</html>

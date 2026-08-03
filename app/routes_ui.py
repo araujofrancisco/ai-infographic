@@ -78,7 +78,8 @@ async def index(
         request=request,
         name="index.html",
         context={
-            "request": request
+            "request": request,
+            "active": "new"
         }
     )
 
