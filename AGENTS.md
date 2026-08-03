@@ -5,8 +5,9 @@ AI infographic generator. FastAPI app in `app/`: Ollama generates infographic
 content as JSON (Pydantic schema), ComfyUI renders ONE portrait SDXL image
 (1024x1448) that becomes the full-page background, `renderer.py` overlays the
 text on it and composites an A4 SVG/PNG/PDF (cairosvg).
-No test framework, no linter, no CI (see `smoke_test.py`). Local git repo,
-no remote (`.gitignore` excludes `.env`, `comfyui/`, `output/`, `projects/`).
+`pytest` suite + `ruff` safety checks + GitHub Actions CI (see
+`scripts/verify.sh`). Local git repo, no remote (`.gitignore` excludes `.env`,
+`comfyui/`, `output/`, `projects/`, `tasks/`).
 
 ## Running
 - `docker compose up --build` starts `comfyui` (port 8188, requires NVIDIA GPU)
@@ -15,9 +16,12 @@ no remote (`.gitignore` excludes `.env`, `comfyui/`, `output/`, `projects/`).
   `COMFYUI_URL`, `COMFYUI_CHECKPOINT` (sd_xl_base_1.0.safetensors), `APP_PORT`.
   Optional tunables (defaults in compose): `OLLAMA_MAX_ATTEMPTS=3`,
   `COMFYUI_MAX_WAIT_SECONDS=1200`, `TASK_TTL_SECONDS=1800`,
-  `MAX_QUEUED_PER_KIND=2`, `PROJECT_RETENTION_SECONDS=2592000` (30d,
-  0 disables artifact cleanup), `CLEANUP_INTERVAL_SECONDS=3600`.
+  `TASKS_DIR=/app/tasks`, `MAX_QUEUED_PER_KIND=2`,
+  `PROJECT_RETENTION_SECONDS=2592000` (30d, 0 disables artifact cleanup),
+  `CLEANUP_INTERVAL_SECONDS=3600`.
   Compose reads `.env`; the app does NOT load `.env` itself (no python-dotenv).
+  On boot the app fails fast if the `OUTPUT_DIR`/`PROJECTS_DIR`/`TASKS_DIR`
+  dirs are missing or unwritable.
 - Local dev (no Docker): from `app/` run `uvicorn main:app --port 8080` with
   env vars pointing at a running Ollama (default `host.docker.internal:11434`)
   and ComfyUI. Generation is slow (Ollama 600s timeout, ComfyUI capped at
@@ -36,20 +40,41 @@ no remote (`.gitignore` excludes `.env`, `comfyui/`, `output/`, `projects/`).
   underlying asyncio task mid-await, plus a cooperative check via the progress
   callback as a fallback), and lazy TTL prune (`TASK_TTL_SECONDS`) of finished
   tasks. Workers take `async def worker(set_progress)`.
-- `main.py` is a thin app factory (static mount + two `APIRouter`s + a
-  `lifespan` that starts/stops `app/cleanup.py`'s `ProjectJanitor`). The janitor
-  is a background loop (every `CLEANUP_INTERVAL_SECONDS`) that deletes
-  `projects/<id>` + `output/<id>` for projects older than
-  `PROJECT_RETENTION_SECONDS` and not referenced by a running task
-  (`TaskManager.active_project_ids()`); `PROJECT_RETENTION_SECONDS=0` disables
-  it. Task lifecycle events (start/success/failure/cancel duration) and Ollama
-  retry attempts are logged with the task id.
-  `app/routes_ui.py` (pages + save-content + generate + file serving)
-  and `app/routes_tasks.py` (status + error page) hold all HTTP. Business logic
-  lives in `app/services.py` (`ContentService`, `RenderingService`), storage in
-  `app/storage.py` (`ProjectRepository` writes `projects/<uuid>/project.json`,
+- Task state is persisted in a JSONL journal (`TASKS_DIR/journal.jsonl`,
+  `app/task_store.py`). `TaskManager` journals every transition (created /
+  started / terminal), never per-tick progress. On boot `main.py` calls
+  `task_manager.restore()`, which replays finished tasks into memory (status
+  pages + the `/activity` feed survive restarts) and marks any orphaned
+  pending/running task as `failed` with "interrupted by restart" so the
+  `working.html` poller gets a terminal state instead of a 404. The journal is
+  git-ignored and survives process death; journal writes degrade gracefully if
+  `TASKS_DIR` is unwritable.
+- `main.py` is a thin app factory (static mount + three `APIRouter`s + a
+  `lifespan` that starts/stops `app/cleanup.py`'s `ProjectJanitor` and calls
+  `task_manager.restore()`). The janitor is a background loop (every
+  `CLEANUP_INTERVAL_SECONDS`) that deletes `projects/<id>` + `output/<id>` for
+  projects older than `PROJECT_RETENTION_SECONDS` (aged by the stored
+  `updated_at` timestamp, falling back to file `mtime` for legacy projects) and
+  not referenced by a running task (`TaskManager.active_project_ids()`);
+  `PROJECT_RETENTION_SECONDS=0` disables it. Task lifecycle events
+  (start/success/failure/cancel duration) and Ollama retry attempts are logged
+  with the task id. `app/routes_ui.py` (pages + save-content + generate + file
+  serving), `app/routes_tasks.py` (status + error page) and `app/routes_library.py`
+  (library + delete + thumbnail + activity) hold all HTTP. Business logic lives
+  in `app/services.py` (`ContentService`, `RenderingService`), storage in
+  `app/storage.py` (`ProjectRepository` writes `projects/<uuid>/project.json`
+  with `created_at`/`updated_at` timestamps and exposes `list_projects()`,
   `OutputStore` resolves `output/<uuid>/infographic.*` and guards path
   traversal), workers in `app/workers.py`.
+- The library (`GET /projects`) is a thumbnail card grid over
+  `ProjectRepository.list_projects()`, showing draft vs rendered status
+  (rendered = all of svg/png/pdf exist in `output/`), with actions to open,
+  download the PDF, or hard-delete (`POST /projects/{id}/delete` refuses a 409
+  while an active task references the project). `GET /projects/{id}/thumbnail`
+  serves the rendered `infographic.png` or the raw `page.png` via a
+  uuid-guarded resolver. `GET /activity` renders the tail of the task journal
+  with status/duration and links back to projects. A `_nav.html` partial
+  (New / Library / Activity) is included on every page.
 - Content worker -> `ContentService.create_content` -> `OllamaClient` (corrective
   retry up to `OLLAMA_MAX_ATTEMPTS` on invalid JSON/schema) -> project saved.
   Infographic worker -> `RenderingService.generate()` -> one `ComfyUIClient`
@@ -92,6 +117,19 @@ no remote (`.gitignore` excludes `.env`, `comfyui/`, `output/`, `projects/`).
   regenerates `page.png`).
 
 ## Verification
+- `scripts/verify.sh` runs, in order: `pytest` (unit + component suite in
+  `tests/`), `ruff check` (safety rules only: pyflakes `F` + syntax `E9`; the
+  deliberate one-arg-per-line style is NOT auto-formatted), and the dependency-
+  light `python3 smoke_test.py`. GitHub Actions runs the same steps
+  (`.github/workflows/ci.yml`, dormant until a remote is added).
+- pytest `tests/` covers storage timestamps + `list_projects()` (ordering,
+  corrupt/uuid filtering, mtime fallback), the task journal lifecycle and
+  `TaskManager.restore()` (terminal replay + interrupted-as-failed), renderer
+  wrap/fit boundaries, library/delete/thumbnail/activity routes via
+  `TestClient`, and a **ComfyUI workflow contract test** that asserts every
+  node-ID constant in `comfyui_client.py` exists in `illustration_api.json`
+  with the expected type and wiring (guards the "edit workflow, re-sync
+  constants" foot-gun).
 - Dependency-light checks (no venv needed): `python3 smoke_test.py` - AST-parses
   every module, asserts `ComfyUIClient` methods are inside the class, runs
   `renderer.build_svg()` with duck-typed content (stubs pydantic if missing),
@@ -153,9 +191,12 @@ no remote (`.gitignore` excludes `.env`, `comfyui/`, `output/`, `projects/`).
 - Task failure pages reuse `index.html`/`review.html` with an `error` banner
   (form values are echoed back from the task's stored `form`). `working.html`
   JS lives inline; `static/app.js` handles the form submit spinner on
-  index/result pages; `static/review.js` owns review-page save/regen logic.
+  index/result pages; `static/review.js` owns review-page save/regen logic;
+  `static/library.js` owns the library delete flow. A `_nav.html` partial is
+  included on every page; pass `active` in the context to highlight a tab.
 - `comfyui/` is a ~6.6G mounted install; in-container files can be root-owned
   mode 600 (e.g. `comfyui/workflows/illustration.json`) - the app never reads them.
-- `output/` and `projects/` are runtime data dirs (compose volumes) and git-ignored.
+- `output/`, `projects/` and `tasks/` are runtime data dirs (compose volumes)
+  and git-ignored.
 - Image prompts aggressively forbid text/letters (illustrations sit inside a
   text infographic); keep that in prompts.
