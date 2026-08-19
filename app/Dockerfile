@@ -7,6 +7,7 @@ ENV PYTHONUNBUFFERED=1
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
+        iproute2 \
         libcairo2 \
         libpango-1.0-0 \
         libpangocairo-1.0-0 \
@@ -24,6 +25,9 @@ COPY . .
 
 RUN mkdir -p /app/output /app/projects /app/tasks
 
+COPY update-env-ip.sh /usr/local/bin/update-env-ip.sh
+RUN chmod +x /usr/local/bin/update-env-ip.sh
+
 EXPOSE 8080
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["/usr/local/bin/update-env-ip.sh", "&&", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
