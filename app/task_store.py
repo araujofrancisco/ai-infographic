@@ -1,5 +1,7 @@
 import json
 import logging
+import time
+from datetime import datetime
 from pathlib import Path
 
 from config import settings
@@ -122,6 +124,189 @@ class TaskStore:
     ) -> list[dict]:
 
         return self.read()[-limit:]
+
+    def journal_lines(
+        self
+    ) -> int:
+
+        if not self.journal.exists():
+
+            return 0
+
+        try:
+
+            return sum(
+                1
+                for line in self.journal.read_text(
+                    encoding="utf-8"
+                ).splitlines()
+                if line.strip()
+            )
+
+        except OSError:
+
+            return 0
+
+    def maybe_compact(
+        self,
+        max_age_seconds: int | None = None,
+        threshold: int = 2000
+    ) -> int:
+
+        if self.journal_lines() < threshold:
+
+            return 0
+
+        return self.compact(
+            max_age_seconds=max_age_seconds
+        )
+
+    def compact(
+        self,
+        max_age_seconds: int | None = None
+    ) -> int:
+
+        max_age = (
+            max_age_seconds
+            if max_age_seconds is not None
+            else settings.TASK_TTL_SECONDS
+        )
+
+        latest: dict[str, dict] = {}
+
+        started: dict[str, dict] = {}
+
+        for snapshot in self.read():
+
+            task_id = snapshot.get(
+                "id"
+            )
+
+            if not task_id:
+
+                continue
+
+            ts = snapshot.get(
+                "ts",
+                ""
+            )
+
+            status = snapshot.get(
+                "status"
+            )
+
+            if (
+                status in (
+                    "pending",
+                    "running"
+                )
+                and ts
+            ) and (
+                task_id not in started
+                or ts < started[task_id].get(
+                    "ts",
+                    ""
+                )
+            ):
+
+                started[
+                    task_id
+                ] = snapshot
+
+            if (
+                task_id not in latest
+                or ts >= latest[task_id].get(
+                    "ts",
+                    ""
+                )
+            ):
+
+                latest[
+                    task_id
+                ] = snapshot
+
+        kept = []
+
+        for task_id, snapshot in latest.items():
+
+            if (
+                snapshot.get(
+                    "status"
+                )
+                in (
+                    "succeeded",
+                    "failed",
+                    "cancelled"
+                )
+            ):
+
+                ts = snapshot.get(
+                    "ts"
+                )
+
+                try:
+
+                    age = (
+                        time.time()
+                        - datetime.fromisoformat(
+                            ts
+                        ).timestamp()
+                    )
+
+                except (
+                    TypeError,
+                    ValueError
+                ):
+
+                    age = 0
+
+                if age > max_age:
+
+                    continue
+
+            kept.append(
+                snapshot
+            )
+
+            started_snapshot = (
+                started.get(
+                    task_id
+                )
+            )
+
+            if (
+                started_snapshot
+                and started_snapshot
+                is not snapshot
+            ):
+
+                kept.append(
+                    started_snapshot
+                )
+
+        kept.sort(
+            key=lambda item: (
+                item.get(
+                    "ts",
+                    ""
+                )
+            )
+        )
+
+        removed = (
+            self.journal_lines()
+            - len(kept)
+        )
+
+        if removed <= 0:
+
+            return 0
+
+        self._rewrite(
+            kept
+        )
+
+        return removed
 
     def delete(
         self,

@@ -208,11 +208,10 @@
                                     Illustration description
                                 </label>
 
-                                <input
-                                    type="hidden"
+                                <textarea
                                     class="sec-field sec-visual"
-                                    value="{{ section.visual_description }}"
-                                >
+                                    rows="3"
+                                >{{ section.visual_description }}</textarea>
 
                             </div>
 
@@ -263,6 +262,27 @@
                     </label>
 
                 </div>
+
+            </form>
+
+            <form
+                id="generate-form"
+                method="post"
+                action="/generate-infographic"
+            >
+
+                <input
+                    type="hidden"
+                    name="project_id"
+                    value="{{ project_id }}"
+                >
+
+                <input
+                    type="hidden"
+                    id="force-input"
+                    name="force"
+                    value="0"
+                >
 
             </form>
 
@@ -379,11 +399,10 @@
                     Illustration description
                 </label>
 
-                <input
-                    type="hidden"
+                <textarea
                     class="sec-field sec-visual"
-                    value=""
-                >
+                    rows="3"
+                ></textarea>
 
             </div>
 

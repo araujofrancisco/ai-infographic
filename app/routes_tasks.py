@@ -206,9 +206,9 @@ async def task_page(
 
     if task is None:
 
-        return HTMLResponse(
-            "Task not found",
-            status_code=404
+        raise HTTPException(
+            status_code=404,
+            detail="Task not found."
         )
 
     error = task.error
@@ -234,9 +234,9 @@ async def task_page(
 
         if content is None:
 
-            return HTMLResponse(
-                "Project not found",
-                status_code=404
+            raise HTTPException(
+                status_code=404,
+                detail="Project not found."
             )
 
         return templates.TemplateResponse(

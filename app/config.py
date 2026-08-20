@@ -55,6 +55,16 @@ class Settings:
         1200
     )
 
+    CONTENT_TASK_TIMEOUT_SECONDS = _int_env(
+        "CONTENT_TASK_TIMEOUT_SECONDS",
+        OLLAMA_MAX_ATTEMPTS * 600 + 120
+    )
+
+    INFOGRAPHIC_TASK_TIMEOUT_SECONDS = _int_env(
+        "INFOGRAPHIC_TASK_TIMEOUT_SECONDS",
+        COMFYUI_MAX_WAIT_SECONDS + 600
+    )
+
     OUTPUT_DIR = os.getenv(
         "OUTPUT_DIR",
         "/app/output"
@@ -88,6 +98,16 @@ class Settings:
     CLEANUP_INTERVAL_SECONDS = _int_env(
         "CLEANUP_INTERVAL_SECONDS",
         3600
+    )
+
+    AUTH_USER = os.getenv(
+        "AUTH_USER",
+        ""
+    )
+
+    AUTH_PASSWORD = os.getenv(
+        "AUTH_PASSWORD",
+        ""
     )
 
 

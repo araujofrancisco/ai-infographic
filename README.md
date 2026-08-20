@@ -95,15 +95,21 @@ root, which Compose reads.
 | `COMFYUI_URL` | `http://comfyui:8188` | Base URL of the ComfyUI server. |
 | `COMFYUI_CHECKPOINT` | `sd_xl_base_1.0.safetensors` | Checkpoint name applied to the ComfyUI workflow's checkpoint loader at render time. |
 | `COMFYUI_MAX_WAIT_SECONDS` | `1200` | Cap on how long to wait for a ComfyUI workflow. |
+| `CONTENT_TASK_TIMEOUT_SECONDS` | `OLLAMA_MAX_ATTEMPTS × 600 + 120` | Hard per-task timeout for content generation (stops stuck workers). |
+| `INFOGRAPHIC_TASK_TIMEOUT_SECONDS` | `COMFYUI_MAX_WAIT_SECONDS + 600` | Hard per-task timeout for infographic rendering. |
 | `TASK_TTL_SECONDS` | `1800` | How long finished tasks stay in memory before pruning. |
 | `MAX_QUEUED_PER_KIND` | `2` | Max queued tasks per kind (one running + this many queued). |
 | `TASKS_DIR` | `/app/tasks` | Where the JSONL task journal lives. |
 | `PROJECT_RETENTION_SECONDS` | `2592000` | Delete projects older than this (0 disables the janitor). |
 | `CLEANUP_INTERVAL_SECONDS` | `3600` | How often the janitor sweep runs. |
+| `AUTH_USER` / `AUTH_PASSWORD` | unset | When both are set, all routes (except `/healthz`) require HTTP Basic auth. |
 
 Runtime data lives in git-ignored `output/`, `projects/`, and `tasks/`
 directories (bind-mounted into the container). If any of these are missing or
 not writable at boot, the app **fails fast** on purpose.
+
+Both services expose health checks (`/healthz` on the app, `/system_stats` on
+ComfyUI); `docker compose ps` reports their status.
 
 ## Documentation
 
@@ -148,6 +154,7 @@ app/
   templates/         # Jinja2 pages
   static/            # CSS + page JS
   workflows/         # ComfyUI API workflow (illustration_api.json)
+  requirements-dev.txt  # dev/test deps (pytest, ruff)
 comfyui/             # git-ignored ComfyUI install + models (host mount)
 output/              # git-ignored rendered files (infographic.{svg,png,pdf})
 projects/            # git-ignored project content (project.json per project)

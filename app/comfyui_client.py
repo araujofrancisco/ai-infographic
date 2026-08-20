@@ -36,7 +36,6 @@ class ComfyUIClient:
         )
 
         if not workflow_path.exists():
-
             raise FileNotFoundError(
                 f"ComfyUI workflow not found: "
                 f"{workflow_path}"
@@ -49,6 +48,34 @@ class ComfyUIClient:
         ) as file:
 
             self.workflow = json.load(file)
+
+        self._client = httpx.AsyncClient(
+            timeout=None
+        )
+
+    async def close(self):
+
+        await self._client.aclose()
+
+    async def ping(
+        self
+    ) -> bool:
+
+        url = f'{self.base_url}/system_stats'
+
+        try:
+
+            response = await self._client.get(
+                url,
+                timeout=5
+            )
+
+            return response.status_code < 500
+
+        except httpx.HTTPError:
+
+            return False
+
 
     def build_workflow(
         self,
@@ -125,38 +152,34 @@ class ComfyUIClient:
         }
 
         # Image generation can run for minutes,
-        # so no client-side timeout is applied here.
-        async with httpx.AsyncClient(
-            timeout=None
-        ) as client:
+        # so the shared client has no default timeout.
+        response = await self._post_prompt(
+            client=self._client,
+            payload=payload
+        )
 
-            response = await self._post_prompt(
-                client=client,
-                payload=payload
+        prompt_id = response["prompt_id"]
+
+        history = await self._wait_for_completion(
+            client=self._client,
+            prompt_id=prompt_id
+        )
+
+        image_info = self._find_output_image(
+            history
+        )
+
+        if image_info is None:
+
+            raise GenerationError(
+                "ComfyUI completed the workflow "
+                "but no output image was found."
             )
 
-            prompt_id = response["prompt_id"]
-
-            history = await self._wait_for_completion(
-                client=client,
-                prompt_id=prompt_id
-            )
-
-            image_info = self._find_output_image(
-                history
-            )
-
-            if image_info is None:
-
-                raise GenerationError(
-                    "ComfyUI completed the workflow "
-                    "but no output image was found."
-                )
-
-            image_data = await self._download_image(
-                client=client,
-                image_info=image_info
-            )
+        image_data = await self._download_image(
+            client=self._client,
+            image_info=image_info
+        )
 
         output_file = Path(
             output_path
@@ -450,3 +473,4 @@ class ComfyUIClient:
         response.raise_for_status()
 
         return response.content
+

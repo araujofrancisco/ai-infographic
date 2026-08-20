@@ -1,9 +1,13 @@
+import asyncio
+import base64
 import logging
+from collections import OrderedDict
 from pathlib import Path
 
 from fastapi import (
     APIRouter,
     Form,
+    HTTPException,
     Request
 )
 
@@ -75,6 +79,62 @@ PLACEHOLDER_IMAGE = (
     / "static"
     / "placeholder.png"
 )
+
+ART_CACHE_MAX = 64
+
+_art_cache: OrderedDict[
+    tuple[str, int, int],
+    str
+] = OrderedDict()
+
+
+def _encoded_art(
+    image_path: Path
+) -> str:
+
+    stat = image_path.stat()
+
+    key = (
+        str(image_path),
+        stat.st_mtime_ns,
+        stat.st_size
+    )
+
+    cached = _art_cache.get(
+        key
+    )
+
+    if cached is not None:
+
+        _art_cache.move_to_end(
+            key
+        )
+
+        return cached
+
+    encoded = base64.b64encode(
+        image_path.read_bytes()
+    ).decode(
+        "utf-8"
+    )
+
+    _art_cache[
+        key
+    ] = encoded
+
+    _art_cache.move_to_end(
+        key
+    )
+
+    while len(
+        _art_cache
+    ) > ART_CACHE_MAX:
+
+        _art_cache.popitem(
+            last=False
+        )
+
+    return encoded
 
 
 @router.get(
@@ -277,9 +337,9 @@ async def review(
 
     if content is None:
 
-        return HTMLResponse(
-            "Project not found",
-            status_code=404
+        raise HTTPException(
+            status_code=404,
+            detail="Project not found."
         )
 
     context = {
@@ -371,13 +431,20 @@ async def preview(
 
         image_path = PLACEHOLDER_IMAGE
 
-    svg = build_svg(
+    encoded = await asyncio.to_thread(
+        _encoded_art,
+        image_path
+    )
+
+    svg = await asyncio.to_thread(
+        build_svg,
         content=content,
         image_paths=[
             str(
                 image_path
             )
-        ]
+        ],
+        image_b64=encoded
     )
 
     return Response(
@@ -402,9 +469,9 @@ async def result(
         project_id
     ):
 
-        return HTMLResponse(
-            "Infographic not found",
-            status_code=404
+        raise HTTPException(
+            status_code=404,
+            detail="Infographic not found."
         )
 
     files = outputs.files(
@@ -441,9 +508,9 @@ async def generate_infographic(
 
     if content is None:
 
-        return HTMLResponse(
-            "Project not found",
-            status_code=404
+        raise HTTPException(
+            status_code=404,
+            detail="Project not found."
         )
 
     form = {
@@ -522,9 +589,9 @@ async def get_file(
 
     if file_path is None:
 
-        return HTMLResponse(
-            "File not found",
-            status_code=404
+        raise HTTPException(
+            status_code=404,
+            detail="File not found."
         )
 
     return FileResponse(

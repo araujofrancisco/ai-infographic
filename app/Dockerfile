@@ -7,7 +7,6 @@ ENV PYTHONUNBUFFERED=1
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        iproute2 \
         libcairo2 \
         libpango-1.0-0 \
         libpangocairo-1.0-0 \
@@ -30,4 +29,6 @@ RUN chmod +x /usr/local/bin/update-env-ip.sh
 
 EXPOSE 8080
 
-CMD ["/usr/local/bin/update-env-ip.sh", "&&", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
+# update-env-ip.sh detects the reachable Ollama endpoint, exports OLLAMA_URL,
+# then starts uvicorn in-process. No shell quoting here: the script owns handoff.
+CMD ["/usr/local/bin/update-env-ip.sh"]

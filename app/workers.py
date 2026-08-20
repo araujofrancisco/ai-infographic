@@ -49,3 +49,10 @@ async def infographic_worker(
     return {
         "project_id": project_id
     }
+
+
+async def close_backends():
+
+    await content_service.ollama.close()
+
+    await rendering_service.comfyui.close()

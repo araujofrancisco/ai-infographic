@@ -8,6 +8,12 @@ from storage import OutputStore, ProjectNotFound, ProjectRepository
 from exceptions import GenerationError
 
 
+# How long a preflight connectivity check may block before the worker reports the
+# backend as unreachable. Kept short so a dead/unreachable Ollama or ComfyUI
+# fails fast instead of looking hung.
+PRELOAD_TIMEOUT_SECONDS = 12
+
+
 NEGATIVE_PROMPT = """
 text,
 letters,
@@ -64,6 +70,14 @@ class ContentService:
         set_progress(
             current=0,
             total=1,
+            message="Checking Ollama…"
+        )
+
+        await self._ensure_ollama()
+
+        set_progress(
+            current=0,
+            total=1,
             message="Generating content with Ollama…"
         )
 
@@ -88,6 +102,29 @@ class ContentService:
         )
 
         return project_id, content
+
+    async def _ensure_ollama(
+        self
+    ):
+
+        try:
+
+            reachable = await asyncio.wait_for(
+                self.ollama.ping(),
+                timeout=PRELOAD_TIMEOUT_SECONDS
+            )
+
+        except asyncio.TimeoutError:
+
+            reachable = False
+
+        if not reachable:
+
+            raise GenerationError(
+                f"Ollama is not reachable at "
+                f"{self.ollama.base_url}. Please make sure it is "
+                f"running and the URL is correct."
+            )
 
     def save_content(
         self,
@@ -166,6 +203,8 @@ class RenderingService:
 
         if not reuse_page:
 
+            await self._ensure_comfyui()
+
             prompt = self._build_page_prompt(
                 project
             )
@@ -218,6 +257,29 @@ class RenderingService:
             "png": str(png_path),
             "pdf": str(pdf_path)
         }
+
+    async def _ensure_comfyui(
+        self
+    ):
+
+        try:
+
+            reachable = await asyncio.wait_for(
+                self.comfyui.ping(),
+                timeout=PRELOAD_TIMEOUT_SECONDS
+            )
+
+        except asyncio.TimeoutError:
+
+            reachable = False
+
+        if not reachable:
+
+            raise GenerationError(
+                f"ComfyUI is not reachable at "
+                f"{self.comfyui.base_url}. Please make sure it is "
+                f"running and the URL is correct."
+            )
 
     @staticmethod
     def _prepare_page_image(

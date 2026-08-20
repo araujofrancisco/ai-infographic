@@ -188,7 +188,8 @@ def render_infographic(
 def build_svg(
     content: InfographicContent,
     image_paths: list[str],
-    scale: float | None = None
+    scale: float | None = None,
+    image_b64: str | None = None
 ) -> str:
 
     if not image_paths:
@@ -247,13 +248,19 @@ def build_svg(
 """
     )
 
-    encoded = base64.b64encode(
-        Path(
-            image_paths[0]
-        ).read_bytes()
-    ).decode(
-        "utf-8"
-    )
+    if image_b64 is None:
+
+        encoded = base64.b64encode(
+            Path(
+                image_paths[0]
+            ).read_bytes()
+        ).decode(
+            "utf-8"
+        )
+
+    else:
+
+        encoded = image_b64
 
     svg.append(
         f"""

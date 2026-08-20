@@ -25,6 +25,17 @@ services:
               capabilities:
                 - gpu
 
+    healthcheck:
+      test:
+        - CMD
+        - python3
+        - -c
+        - "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8188/system_stats', timeout=5).status == 200 else 1)"
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+
   infographic:
     build:
       context: ./app
@@ -50,6 +61,8 @@ services:
       MAX_QUEUED_PER_KIND: ${MAX_QUEUED_PER_KIND:-2}
       PROJECT_RETENTION_SECONDS: ${PROJECT_RETENTION_SECONDS:-2592000}
       CLEANUP_INTERVAL_SECONDS: ${CLEANUP_INTERVAL_SECONDS:-3600}
+      AUTH_USER: ${AUTH_USER:-}
+      AUTH_PASSWORD: ${AUTH_PASSWORD:-}
 
     volumes:
       - ./output:/app/output
@@ -58,3 +71,14 @@ services:
 
     depends_on:
       - comfyui
+
+    healthcheck:
+      test:
+        - CMD
+        - python3
+        - -c
+        - "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=5).status == 200 else 1)"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

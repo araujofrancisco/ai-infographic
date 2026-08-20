@@ -82,7 +82,9 @@ class TaskManager:
         self,
         max_queued_per_kind: int | None = None,
         max_age_seconds: int | None = None,
-        store: TaskStore | None = None
+        store: TaskStore | None = None,
+        content_timeout_seconds: float | None = None,
+        infographic_timeout_seconds: float | None = None
     ):
 
         self._tasks: dict[str, Task] = {}
@@ -108,6 +110,19 @@ class TaskManager:
             if max_age_seconds is not None
             else settings.TASK_TTL_SECONDS
         )
+
+        self._timeouts = {
+            "content": (
+                content_timeout_seconds
+                if content_timeout_seconds is not None
+                else settings.CONTENT_TASK_TIMEOUT_SECONDS
+            ),
+            "infographic": (
+                infographic_timeout_seconds
+                if infographic_timeout_seconds is not None
+                else settings.INFOGRAPHIC_TASK_TIMEOUT_SECONDS
+            )
+        }
 
     def can_start(
         self,
@@ -311,6 +326,8 @@ class TaskManager:
                 task_id
             ]
 
+        self.store.maybe_compact()
+
         return len(
             stale
         )
@@ -435,6 +452,12 @@ class TaskManager:
                     task.kind
                 )
 
+                self.store.append(
+                    self._snapshot(
+                        task
+                    )
+                )
+
             else:
 
                 task.status = status
@@ -528,11 +551,26 @@ class TaskManager:
 
             try:
 
-                result = await worker(
+                worker_coro = worker(
                     self._progress_for(
                         task
                     )
                 )
+
+                timeout = self._timeouts.get(
+                    task.kind
+                )
+
+                if timeout:
+
+                    result = await asyncio.wait_for(
+                        worker_coro,
+                        timeout=timeout
+                    )
+
+                else:
+
+                    result = await worker_coro
 
                 task.result = result
 
@@ -563,6 +601,28 @@ class TaskManager:
                 task.status = "failed"
 
                 task.error = exc.message
+
+            except TimeoutError:
+
+                task.status = "failed"
+
+                task.error = (
+                    f"The task did not finish within {timeout:.0f} seconds "
+                    "and was stopped. The generation may be stuck; "
+                    "please try again."
+                    if timeout
+                    else (
+                        "The task was stopped because it did not "
+                        "finish in time. Please try again."
+                    )
+                )
+
+                logger.error(
+                    "task %s (%s) timed out after %.0fs",
+                    task.id,
+                    task.kind,
+                    timeout or 0
+                )
 
             except Exception as exc:
 
@@ -601,6 +661,5 @@ class TaskManager:
                     or task.finished_at
                 )
             )
-
 
 task_manager = TaskManager()

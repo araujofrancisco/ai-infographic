@@ -1,3 +1,4 @@
+import base64
 import re
 import uuid
 from pathlib import Path
@@ -293,6 +294,174 @@ def test_review_404_for_missing_project(
     )
 
     assert response.status_code == 404
+
+
+def test_healthz_ok(
+    client
+):
+
+    response = client.get(
+        "/healthz"
+    )
+
+    assert response.status_code == 200
+
+    assert response.json() == {
+        "ok": True
+    }
+
+
+def test_unknown_route_renders_error_page(
+    client
+):
+
+    response = client.get(
+        "/does-not-exist"
+    )
+
+    assert response.status_code == 404
+
+    assert (
+        "The page you requested does not exist."
+        in response.text
+    )
+
+    assert "Not found" in response.text
+
+
+def test_auth_disabled_by_default(
+    client
+):
+
+    response = client.get(
+        "/"
+    )
+
+    assert response.status_code == 200
+
+
+def test_auth_required_when_enabled(
+    client,
+    monkeypatch
+):
+
+    monkeypatch.setattr(
+        settings,
+        "AUTH_USER",
+        "admin"
+    )
+
+    monkeypatch.setattr(
+        settings,
+        "AUTH_PASSWORD",
+        "secret"
+    )
+
+    response = client.get(
+        "/"
+    )
+
+    assert response.status_code == 401
+
+    token = base64.b64encode(
+        b"admin:secret"
+    ).decode(
+        "ascii"
+    )
+
+    response = client.get(
+        "/",
+        headers={
+            "Authorization": f"Basic {token}"
+        }
+    )
+
+    assert response.status_code == 200
+
+    wrong = base64.b64encode(
+        b"admin:nope"
+    ).decode(
+        "ascii"
+    )
+
+    response = client.get(
+        "/",
+        headers={
+            "Authorization": f"Basic {wrong}"
+        }
+    )
+
+    assert response.status_code == 401
+
+    response = client.get(
+        "/healthz"
+    )
+
+    assert response.status_code == 200
+
+
+def test_review_page_dom_contract(
+    client
+):
+
+    project_id = write_a_project()
+
+    response = client.get(
+        f"/review/{project_id}"
+    )
+
+    assert response.status_code == 200
+
+    html = response.text
+
+    assert 'id="save-form"' in html
+
+    assert (
+        'id="generate-form"'
+        in html
+    )
+
+    assert (
+        'action="/generate-infographic"'
+        in html
+    )
+
+    assert (
+        'id="force-input"'
+        in html
+    )
+
+    assert (
+        'name="force"'
+        in html
+    )
+
+    assert (
+        'name="project_id"'
+        in html
+    )
+
+    assert (
+        'id="generate-button"'
+        in html
+    )
+
+    assert (
+        'id="force-regen"'
+        in html
+    )
+
+    assert (
+        'class="sec-field sec-visual"'
+        in html
+    )
+
+    assert '<textarea' in html
+
+    assert re.search(
+        r'<textarea\s+class="sec-field sec-visual"',
+        html
+    ) is not None
 
 
 def test_preview_renders_svg(

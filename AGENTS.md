@@ -18,7 +18,11 @@ text on it and composites an A4 SVG/PNG/PDF (cairosvg).
   `COMFYUI_MAX_WAIT_SECONDS=1200`, `TASK_TTL_SECONDS=1800`,
   `TASKS_DIR=/app/tasks`, `MAX_QUEUED_PER_KIND=2`,
   `PROJECT_RETENTION_SECONDS=2592000` (30d, 0 disables artifact cleanup),
-  `CLEANUP_INTERVAL_SECONDS=3600`.
+  `CLEANUP_INTERVAL_SECONDS=3600`,
+  `CONTENT_TASK_TIMEOUT_SECONDS=OLLAMA_MAX_ATTEMPTS*600+120`,
+  `INFOGRAPHIC_TASK_TIMEOUT_SECONDS=COMFYUI_MAX_WAIT_SECONDS+600`, and
+  `AUTH_USER`/`AUTH_PASSWORD` (when both are set, all routes except `/healthz`
+  require HTTP Basic auth).
   Compose reads `.env`; the app does NOT load `.env` itself (no python-dotenv).
   On boot the app fails fast if the `OUTPUT_DIR`/`PROJECTS_DIR`/`TASKS_DIR`
   dirs are missing or unwritable.
@@ -51,7 +55,12 @@ text on it and composites an A4 SVG/PNG/PDF (cairosvg).
   pending/running task as `failed` with "interrupted by restart" so the
   `working.html` poller gets a terminal state instead of a 404. The journal is
   git-ignored and survives process death; journal writes degrade gracefully if
-  `TASKS_DIR` is unwritable.
+  `TASKS_DIR` is unwritable. The journal is compacted lazily (threshold of 2000
+  lines, triggered from `TaskManager.prune`) keeping each task's earliest
+  pending/running snapshot (start time for the activity feed) plus its latest
+  snapshot, and dropping terminal tasks older than `TASK_TTL_SECONDS`.
+  `restore()` journals interrupted pending/running tasks as `failed` so the
+  journal and the activity feed reflect the interruption.
 - `main.py` is a thin app factory (static mount + three `APIRouter`s + a
   `lifespan` that starts/stops `app/cleanup.py`'s `ProjectJanitor` and calls
   `task_manager.restore()`). The janitor is a background loop (every
@@ -125,8 +134,10 @@ text on it and composites an A4 SVG/PNG/PDF (cairosvg).
   `static/review.js` serializes the DOM to `content_json` and POSTs to
   `/save-content?json=1` (returns `{"ok":true}` / `400 {"ok":false,"error":...}`
   so edits are never lost on validation failure). "Generate infographic" saves
-  first, then submits the hidden generate form (`force-regen` checkbox
-  regenerates `page.png`). Sections are collapsible `<details>` blocks (live
+  first, then submits the hidden `#generate-form` (`#force-input` carries the
+  `force-regen` checkbox so `page.png` is regenerated only when checked).
+  Every section field is editable, including the `visual_description`
+  textarea that feeds the ComfyUI motifs. Sections are collapsible `<details>` blocks (live
   title in the summary, expand/collapse all) with add/remove clamped to the
   schema's 3-8 range; success notices auto-dismiss (errors persist) and are
   announced via an `aria-live` banner region. A sticky `preview-pane` gives a
@@ -146,16 +157,19 @@ text on it and composites an A4 SVG/PNG/PDF (cairosvg).
   (`.github/workflows/ci.yml`, dormant until a remote is added).
 - pytest `tests/` covers storage timestamps + `list_projects()` (ordering,
   corrupt/uuid filtering, mtime fallback), the task journal lifecycle and
-  `TaskManager.restore()` (terminal replay + interrupted-as-failed), renderer
+  `TaskManager.restore()` (terminal replay + interrupted-as-failed), journal
+  compaction (TTL drop + started/latest collapse), renderer
   wrap/fit boundaries + header wrap/empty-image guard, `services.py`
   (page-prompt motifs, `create_content`, `generate` resume vs `force`), UI/task
   routes via `TestClient` (queue-full, `save-content` JSON 400/404, error-page
-  retry forms, task-cancel 200/409/404, preview SVG/400/404),
+  retry forms, task-cancel 200/409/404, preview SVG/400/404, `/healthz`,
+  review-page DOM contract, auth on/off, error page rendering),
   library/delete/thumbnail/activity/search/pagination routes,
   and a **ComfyUI workflow contract test** that asserts every
   node-ID constant in `comfyui_client.py` exists in `illustration_api.json`
   with the expected type and wiring and that `build_workflow` applies
   `COMFYUI_CHECKPOINT` (guards the "edit workflow, re-sync constants" foot-gun).
+  CI additionally runs `shellcheck` on `app/update-env-ip.sh`.
 - Dependency-light checks (no venv needed): `python3 smoke_test.py` - AST-parses
   every module, asserts `ComfyUIClient` methods are inside the class, runs
   `renderer.build_svg()` with duck-typed content (stubs pydantic if missing),

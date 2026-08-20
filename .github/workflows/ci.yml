@@ -20,7 +20,12 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install -r app/requirements.txt pytest ruff
+          pip install -r app/requirements-dev.txt
+
+      - name: Shellcheck startup script
+        run: |
+          sudo apt-get update && sudo apt-get install -y shellcheck
+          shellcheck app/update-env-ip.sh
 
       - name: Unit and component tests
         run: python -m pytest

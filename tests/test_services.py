@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from exceptions import GenerationError
 from config import settings
 from models import Section
 from services import (
@@ -19,6 +20,14 @@ TINY_PNG = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAFElEQVR4nGNUSLjD"
     "gA0wYRUdtBIAE4MBbE0AHosAAAAASUVORK5CYII="
 )
+
+
+async def _ollama_reachable():
+    return True
+
+
+async def _ollama_unreachable():
+    return False
 
 
 def write_page_png(
@@ -190,6 +199,12 @@ def test_create_content_persists_project(
         service.ollama,
         "generate_content",
         fake_ollama
+    )
+
+    monkeypatch.setattr(
+        service.ollama,
+        "ping",
+        _ollama_reachable
     )
 
     def set_progress(
@@ -381,6 +396,12 @@ def test_generate_force_regenerates_page(
 
     monkeypatch.setattr(
         service.comfyui,
+        "ping",
+        _ollama_reachable
+    )
+
+    monkeypatch.setattr(
+        service.comfyui,
         "generate_image",
         fake_generate_image
     )
@@ -428,3 +449,104 @@ def test_generate_missing_project_raises():
     assert "Project not found" in str(
         exc_info.value
     )
+
+
+def test_create_content_fails_fast_when_ollama_unreachable(
+    monkeypatch
+):
+
+    service = ContentService()
+
+    monkeypatch.setattr(
+        service.ollama,
+        "ping",
+        _ollama_unreachable
+    )
+
+    async def boom(
+        *args,
+        **kwargs
+    ):
+
+        raise AssertionError(
+            "generate_content must not run when Ollama is unreachable"
+        )
+
+    monkeypatch.setattr(
+        service.ollama,
+        "generate_content",
+        boom
+    )
+
+    with pytest.raises(
+        GenerationError
+    ) as exc_info:
+
+        asyncio.run(
+            service.create_content(
+                topic="Ghost",
+                audience="Beginner",
+                style="Minimal",
+                section_count=3,
+                set_progress=lambda *a, **k: None
+            )
+        )
+
+    assert (
+        "Ollama is not reachable"
+        in str(
+            exc_info.value
+        )
+    )
+
+
+def test_generate_fails_fast_when_comfyui_unreachable(
+    monkeypatch
+):
+
+    service = RenderingService()
+
+    project_id = make_project(
+        service
+    )
+
+    monkeypatch.setattr(
+        service.comfyui,
+        "ping",
+        _ollama_unreachable
+    )
+
+    calls = []
+
+    async def boom(
+        *args,
+        **kwargs
+    ):
+
+        calls.append(1)
+
+    monkeypatch.setattr(
+        service.comfyui,
+        "generate_image",
+        boom
+    )
+
+    with pytest.raises(
+        GenerationError
+    ) as exc_info:
+
+        asyncio.run(
+            service.generate(
+                project_id,
+                set_progress=lambda *a, **k: None
+            )
+        )
+
+    assert (
+        "ComfyUI is not reachable"
+        in str(
+            exc_info.value
+        )
+    )
+
+    assert calls == []

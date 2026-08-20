@@ -21,6 +21,32 @@ class OllamaClient:
         self.model = settings.OLLAMA_MODEL
         self.max_attempts = settings.OLLAMA_MAX_ATTEMPTS
 
+        self._client = httpx.AsyncClient()
+
+    async def close(self):
+
+        await self._client.aclose()
+
+    async def ping(
+        self
+    ) -> bool:
+
+        url = f'{self.base_url}/api/tags'
+
+        try:
+
+            response = await self._client.get(
+                url,
+                timeout=5
+            )
+
+            return response.status_code < 500
+
+        except httpx.HTTPError:
+
+            return False
+
+
     async def generate_content(
         self,
         topic: str,
@@ -220,18 +246,15 @@ organize the subject into logical sections.
 
         try:
 
-            async with httpx.AsyncClient(
+            response = await self._client.post(
+                url,
+                json=payload,
                 timeout=600
-            ) as client:
+            )
 
-                response = await client.post(
-                    url,
-                    json=payload
-                )
+            response.raise_for_status()
 
-                response.raise_for_status()
-
-                data = response.json()
+            data = response.json()
 
         except httpx.ConnectError as exc:
 
@@ -268,3 +291,4 @@ organize the subject into logical sections.
             return text
 
         return text[:limit] + "..."
+
