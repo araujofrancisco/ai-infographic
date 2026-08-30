@@ -15,6 +15,7 @@ services:
       - ./comfyui/input:/root/ComfyUI/input
       - ./comfyui/output:/root/ComfyUI/output
       - ./comfyui/workflows:/root/ComfyUI/user/default/workflows
+      - ./comfyui/custom_nodes:/root/ComfyUI/custom_nodes
 
     deploy:
       resources:
